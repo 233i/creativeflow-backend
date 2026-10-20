@@ -1,7 +1,7 @@
 # AG-UI 工作流接口
 
-CreativeFlow 的工作流仍由现有队列、MAF 编排器和节点执行器运行；AG-UI 只是标准传输层。旧的
-`/api/external/v1` 提交、状态查询和自定义 SSE 接口保持不变。
+CreativeFlow 的工作流由现有队列、MAF 编排器和节点执行器运行；AG-UI 是传输层。
+它与 [REST/SSE](workflow-api-streaming.md) 并列提供，不要求所有外部客户端都使用 AG-UI。
 
 实现范围：媒体创作和通用编排共用标准运行事件、客户端身份关联、持久化日志、断线精确续读、动态资源权限和原运行取消。使用官方 `AGUI.Abstractions` / `AGUI.Formatting` 1.0.0，不引入第二个 Agent 或工作流执行器。
 
@@ -80,13 +80,13 @@ Accept: text/event-stream
 - POST 在入队前获得 SSE 订阅额度，额度耗尽返回 429，不会创建后台付费任务。GET 也遵守 Key 查询速率及全局／Key 订阅限额，额度在断线、超时和异常时释放。
 - 每批日志读出后重新校验 Key、固定发布版本、知识库与 HTTP 凭据授权，再写出正文。撤权发送 `RUN_ERROR(code=stream_access_lost, metadata={retryable:false,clearPreview:true})` 并关闭；其他 Key 不能订阅该运行。
 - 可恢复订阅错误使用 `RUN_ERROR(code=stream_unavailable,metadata.retryable=true)`；仅重连原运行，不重新生成。整批写入／flush 共用 15 秒期限，慢客户端不会长期占据额度。
-- 新迁移 `0041__agui_workflow_journal.sql`：协议身份在运行快照中保存，唯一索引防止重受理；公开事务日志在 `workflow_run_event` 保存，和运行／节点／公开文本一起提交。删运行时级联删日志。普通 external 请求仍使用原快照与原幂等摘要，不写 AG-UI 日志。增量迁移 `0043__agui_node_names.sql` 为节点事件写入固定图快照中的显示名称。
+- 协议身份在运行快照中保存，唯一索引防止重受理；公开事务日志在 `workflow_run_event` 保存，和运行／节点／公开文本一起提交。删运行时级联删日志。普通 external 请求不写 AG-UI 日志。节点事件使用固定图快照中的显示名称。相关数据库契约来自迁移 0041、0043；部署应执行完整迁移链，而非只挑这两个脚本。
 - 运行锁先于节点锁，取消、普通节点更新和恢复使用统一锁序。完成标记在事务提交前、全部节点事件写入后产生，终态之后的晚到回调不再追加公开日志；服务器重启还会补齐“主运行已终止，但节点收尾被崩溃打断”的 AG-UI 审计，不重试模型。
-- 正式发布需部署后端及前端，启动后端应用迁移；反向代理支持长响应且关闭 SSE 缓冲。后端返回 `X-Accel-Buffering:no`、`Cache-Control:private,no-store,no-transform`。
+- 按[部署流程](deployment.md)先执行迁移再启动服务；需要发布管理页面时同时部署配套前端。仅 AG-UI 服务端接入不依赖浏览器 UI。反向代理支持长响应且关闭 SSE 缓冲，后端返回 `X-Accel-Buffering:no`、`Cache-Control:private,no-store,no-transform`。
 
 ## 管理页面和 JavaScript 客户端
 
-工作流详情 → 发布与版本 → 调用示例，提供 **AG-UI 标准协议 / SSE 流式返回 / 查询最终结果** 三种方式，均根据已发布契约而非未发布草稿生成参数。AG-UI 页给出 POST、续读、身份与取消说明，下载 `/examples/workflow-agui.mjs`。
+工作流详情 → 发布与版本 → 调用示例，提供 **AG-UI 标准协议 / SSE 流式返回 / 查询最终结果** 三种方式，均根据已发布契约而非未发布草稿生成参数。AG-UI 页给出 POST、续读、身份与取消说明，下载 `/examples/workflow-agui.mjs`。该文件由前端提供，源码位于[前端 public/examples](https://github.com/233i/creativeflow-frontend/tree/main/public/examples)，不在后端根路径提供。
 
 ```javascript
 import { runWorkflowAgUi, cancelWorkflowAgUi } from './workflow-agui.mjs';

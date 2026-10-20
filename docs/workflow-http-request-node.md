@@ -1,8 +1,10 @@
 # HTTP request node
 
-The typed workflow HTTP node calls an allowlisted external endpoint and exposes
-statusCode, headers, body, and selected JSON-pointer fields to downstream
-nodes. It is the single integration point for external HTTP operations.
+The typed workflow HTTP node calls an allowlisted external endpoint. Its normal
+response mode exposes `statusCode`, `headers`, `body`, and selected JSON-pointer
+fields; fields-only mode exposes the declared extraction fields. This is the
+general orchestration integration point for external HTTP operations, not a
+replacement for Agent MCP tools or model protocols.
 
 ## Configure a node
 
@@ -25,6 +27,8 @@ JSON, text, and URL-encoded forms are supported. Multipart uploads, binary
 request bodies, and streamed upstream responses are not part of this node.
 The upstream response body is limited to 1 MiB. Parsed JSON is subject to
 bounded object depth, array length, field count, and extraction limits.
+That is a maximum, not a promise every downstream string field accepts 1 MiB;
+the node's response budget and declared downstream field limits also apply.
 
 By default non-2xx responses fail the node. A workflow can opt into passing the
 error response downstream for conditional handling. Requests are not retried
@@ -38,12 +42,16 @@ the configured allowlist. Production should allow only the exact HTTPS paths
 required by the workflow. Development loopback access must be explicitly
 listed and must never be copied into production.
 
+The network setting `Workflow:HttpRequests:AllowedEndpoints` defaults to
+public `https://*` when absent. Configure it explicitly for restricted
+deployments; credential method/path grants remain a separate check.
+
 Credential values are encrypted at rest, masked in logs and snapshots, and
 never returned by the catalog APIs. Changing a credential creates a new version
 so existing published runs remain deterministic.
 
 ## Example
 
-The importable example at examples/http-request.workflow.json contains a
+The importable [example](examples/http-request.workflow.json) contains a
 start node, an HTTP request, and an end node. Replace the example URL and
 create a matching credential before publishing.

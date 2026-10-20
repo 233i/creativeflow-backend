@@ -1,157 +1,121 @@
 # CreativeFlow 后端
 
-CreativeFlow 是基于 .NET 10 的 AI 画布、媒体生成、工作流编排、知识库和 Agent 后端，
-提供对外工作流 API 和 AG-UI 兼容的 SSE 流式事件。
+基于 .NET 10 的 AI 画布、媒体创作、通用编排、知识库、资产和 Agent 后端。
 
-[English](README.md) · [完整文档目录](docs/README.md)
+[English](README.md) · [文档导航](docs/README.md) ·
+[前端仓库](https://github.com/233i/creativeflow-frontend)
 
-## 包含什么
+## 包含的能力
 
-- 媒体创作与通用编排两种工作流，支持节点状态、运行记录、发布和权限管理。
-- 渠道与模型配置、图片/视频生成和素材库。
-- 知识库导入、语义切片、混合检索、重排序和引用。
-- HTTP 工具、结构化输出、参数提取和沙箱脚本。
-- PostgreSQL 元数据、独立文件存储、Redis、RabbitMQ 和 SignalR。
+- 媒体创作和通用编排工作流，持久化运行与节点状态。
+- 渠道/模型管理、图片/视频生成、素材库。
+- 知识导入、语义切片、向量/关键词/混合检索、可选重排序。
+- HTTP 节点、结构化输出、参数提取和 OpenSandbox 脚本。
+- 发布工作流供外部系统调用：REST 查询、自定义 SSE、AG-UI。
 
-**本仓库只有后端，不包含管理后台和画布网页。** 启动成功后可以访问 Swagger 与 API；
-完整界面需要另外部署前端。模型、向量服务、Qdrant 和 OpenSandbox 需要自行配置。
+**本仓库不包含网页。** 后端启动后提供 Swagger；画布和管理后台需要另外运行前端。
+基础服务启动不需要模型 Key。生成、知识库和沙箱功能需单独配置服务，调用模型可能产生费用。
 
-要运行完整网页应用，请先完成下面的后端步骤，再按
-[前端联调与验收](docs/local-development.md#frontend-and-end-to-end-startup)启动前端。
-仅启动后端时，访问根路径 `/` 没有管理页面是正常的。
+## 快速启动：本机独立环境
 
-## 快速启动：本地独立环境
+准备 Git 和带 Compose v2 的 Docker。这条路径由 Docker 编译后端，无需在宿主机安装 .NET。
+在新的克隆目录中执行：
 
-准备 Git，以及带 Compose v2 插件的 Docker。macOS/Windows 可使用 Docker Desktop，
-Linux 使用 Docker Engine。以下命令在克隆后的仓库根目录执行。
-
-Linux 主机已有 Podman 时，可使用[明确指定架构的 Podman 启动步骤](docs/local-development.md#podman-alternative-on-linux)。
-
-### 1. 配置密钥
-
-~~~bash
+```bash
+git clone https://github.com/233i/creativeflow-backend.git
+cd creativeflow-backend
 cp .env.example .env
 openssl rand -hex 32
 openssl rand -base64 32
-~~~
+```
 
-先编辑被 Git 忽略的 `.env`：
+编辑被 Git 忽略的 `.env`，不同字段使用不同随机值：
 
 | 变量 | 要填写的内容 |
 | --- | --- |
-| `POSTGRES_PASSWORD` | 新生成的数据库密码 |
-| `RABBITMQ_PASSWORD` | 另一个随机密码 |
+| `POSTGRES_PASSWORD` | 随机数据库密码 |
+| `RABBITMQ_PASSWORD` | 独立随机消息队列密码 |
 | `ADMIN_PASSWORD` | 足够强的初始管理员密码 |
-| `DEVICE_PEPPER` | 独立随机值，例如 `openssl rand -hex 32` 的输出 |
-| `AI_ENCRYPTION_KEY` | `openssl rand -base64 32` 的输出，解码后必须恰好 32 字节，**不能用 hex** |
+| `DEVICE_PEPPER` | 独立随机值，例如 `openssl rand -hex 32` |
+| `AI_ENCRYPTION_KEY` | `openssl rand -base64 32`，解码恰好 32 字节，不能用 hex |
+| `PUBLIC_ORIGIN` | 本机前端使用 `http://localhost:3000` |
 
-不同配置使用不同随机值，不复用正式环境密钥。加密密钥需要长期保管，重启时不能重新生成。
-暂时保持 OAuth、沙箱等可选功能关闭。
+加密密钥需要长期保管，重启时不能重新生成，否则已有渠道凭据无法解密。
 
-### 2. 启动并验证
-
-~~~bash
+```bash
 docker compose up -d --build
 docker compose ps
 curl --retry 20 --retry-delay 3 --retry-all-errors --max-time 10 \
   -fsS http://localhost:5298/health/ready
 curl -fsS http://localhost:5298/health/live
-~~~
+```
 
-首次构建可能需要数分钟。浏览器打开
-[Swagger](http://localhost:5298/swagger/index.html)。
-ready 检查应显示 PostgreSQL、Redis、RabbitMQ 和文件存储均正常。
+浏览器打开 [Swagger](http://localhost:5298/swagger/index.html)。
+ready 检查 PostgreSQL、Redis、RabbitMQ 和文件存储，不包含模型等可选服务。
+首次构建可能需要数分钟。
 
-默认只启动 API、PostgreSQL 18、Redis 8、RabbitMQ 4 和一次性的文件卷初始化服务，
-自动为这个独立数据库执行迁移。端口只绑定 **127.0.0.1**，这不是正式环境部署清单。
-默认端口被占用时，通过 `.env` 中的可选端口变量调整；并行部署还需使用独立项目名，
-详见[独立栈配置](docs/local-development.md#isolated-compose-stack)。
+默认启动 PostgreSQL 18、Redis 8、RabbitMQ 4、文件卷初始化服务及 API，
+端口只绑定 **127.0.0.1**，数据库和文件使用持久卷。这是本地栈，不是正式环境部署清单。
+端口占用或使用 Podman 时见[本地开发说明](docs/local-development.md#isolated-compose-stack)。
 
-### 3. 登录并配置模型
+### 启动完整网页
 
-另外部署前端后，使用 `ADMIN_USERNAME`（默认 `admin`）和设置的 `ADMIN_PASSWORD`
-登录管理后台；也可先在 Swagger 调用 `POST /api/v1/admin/auth/login`。
-按提示修改初始密码。已有管理员账号不会因修改引导配置而被重置。
+另开终端：
 
-在管理后台配置服务商地址、API Key 和模型，仓库不附带可用模型密钥。
-工作流、向量化和 HTTP 节点还需要配置各自的出站白名单，详见
-[配置说明](docs/configuration.md)和[认证说明](docs/authentication.md)。
+```bash
+git clone https://github.com/233i/creativeflow-frontend.git
+cd creativeflow-frontend
+# 先安装 .node-version 指定的 Node 版本。
+npm ci
+cp .env.example .env.development.local
+npm run dev
+```
 
-配置收费模型之前，可在前端工作流中心导入
-[启动验收回显工作流](docs/examples/startup-echo.workflow.json)。它直接返回输入文本，
-不调用模型、知识库或外部 HTTP 接口；预期结果和重启持久化检查见前端联调说明。
+打开[管理后台](http://localhost:3000/admin)，使用 `ADMIN_USERNAME`（默认 `admin`）
+和前面设置的密码登录，按提示修改初始密码。
+在工作流中心导入 [startup-echo.workflow.json](docs/examples/startup-echo.workflow.json)，
+输入 `message = Hello CreativeFlow`，应得到 `result = Hello CreativeFlow`，不调用模型。
 
-### 停止、重启与数据保留
+用户画布 `/` 需另外注册普通账号；管理员与普通用户不是同一个登录体系。
+开始生成前先在后台配置渠道、模型及用途。上传、素材复用、重启持久化的完整验收步骤见
+[前后端联调](docs/local-development.md#frontend-and-end-to-end-startup)。
 
-~~~bash
+### 停止但保留数据
+
+```bash
 docker compose down
 docker compose up -d
-~~~
+```
 
-数据库和素材保存在命名卷。**除非确认要清空本地实例，不要在 `down` 后加 `-v`。**
-已有数据卷初始化后，修改 `.env` 中的数据库密码不会自动修改数据库内部的账号密码。
+除非明确清空本地实例，不要使用 `down -v`。
+修改 `.env` 中的引导密码不会自动重置已有数据库、消息队列或管理员账号的密码。
 
-## 从源码运行
+## 接下来按需阅读
 
-安装 [global.json](global.json) 指定的 SDK，并参考[本地开发说明](docs/local-development.md)：
+| 目标 | 文档 |
+| --- | --- |
+| 源码开发后端 | [本地开发](docs/local-development.md)，SDK 由 `global.json` 固定 |
+| 部署自己的服务器 | [配置](docs/configuration.md) → [部署](docs/deployment.md) → [运维](docs/operations.md) |
+| 启用知识库 | [知识库](docs/knowledge.md)：Qdrant 回环策略、向量模型和配额 |
+| 启用脚本 | [OpenSandbox](docs/local-development.md#optional-opensandbox) |
+| 外部系统接入 | [REST/SSE](docs/workflow-api-streaming.md) 或 [AG-UI](docs/ag-ui-workflow-api.md) |
+| 维护代码 | [架构](docs/architecture.md)、[数据与迁移](docs/data-model.md)、[开发规范](docs/coding-standards.md) |
 
-~~~bash
-docker compose up -d postgres redis rabbitmq
-cp deploy/development/appsettings.Development.local.example.json \
-  src/CreativeFlow.Api/appsettings.Development.local.json
-# 先填写复制出的配置；dotnet 不会自动读取根目录的 .env。
-dotnet restore CreativeFlow.slnx --locked-mode
-dotnet build CreativeFlow.slnx
-dotnet run --project src/CreativeFlow.Api -- --migrate-only
-dotnet run --project src/CreativeFlow.Api
-~~~
+其他功能说明见[文档导航](docs/README.md)。
+**迁移 0001–0045 和校验文件必须原样保留**，重建 Git 历史不等于重建数据库。
+升级仍在数据库保存媒体的旧实例前，先阅读数据迁移边界，不能直接丢弃文件。
 
-本地配置中的数据库和 RabbitMQ 密码应与 Compose 的 `.env` 一致。
-不要将这些迁移命令指向共享库或正式库。
+## 验证与安全
 
-## 可选能力
+项目持续开发中。基础服务和网页可正常运行，不代表全部质量门禁通过；
+发布前阅读[测试及已知限制](docs/local-development.md#tests)。
+模型、知识库和沙箱需要另外验收，不能用无模型回显代替。
 
-- **知识库：** 基础 Compose 默认关闭。当前 Qdrant 适配器只接受 API 所在网络空间的
-  `http://127.0.0.1:<端口>`，正式环境固定 6333；普通 Docker 服务名、
-  远程 Qdrant 地址不能通过校验。见[知识库配置](docs/knowledge.md)。
-- **OpenSandbox：** 默认关闭，通过 `sandbox` profile 单独启动；需要私有本地配置，
-  并拥有 Docker daemon 访问权限。见[沙箱说明](docs/local-development.md#optional-opensandbox)。
-- **前端：** 单独部署，将网页与 `/api`、`/hubs`、SSE 接口放在同源反向代理后面。
-  Swagger 不等于管理后台。
+不要提交密钥、上传文件、私有配置或构建产物。
+正式环境使用 HTTPS，核对出站白名单与资源授权；需要时在反向代理限制 Swagger。
 
-## 正式部署
-
-按[部署文档](docs/deployment.md)构建固定版本镜像，使用
-[正式环境模板](deploy/production/backend.env.example)注入配置，
-准备持久化文件卷，单独执行一次 `--migrate-only`，再通过 HTTPS 反向代理启动 API。
-文档提供 Linux Docker 命令和健康检查步骤。
-
-数据库和沙箱不要暴露公网。数据库、素材卷、Skill 卷必须一起备份。
-数据库迁移文件及校验值必须完整保留，不能用空库初始化脚本覆盖已有业务库。
-
-## 开发与接口参考
-
-- [架构](docs/architecture.md)与[数据模型](docs/data-model.md)
-- [画布 API](docs/ai-canvas-api.md)与[资产中心](docs/asset-center.md)
-- [工作流](docs/workflows.md)、[AG-UI API](docs/ag-ui-workflow-api.md)与[流式协议](docs/workflow-api-streaming.md)
-- [HTTP 节点和凭据](docs/workflow-http-request-node.md)
-- [运维与恢复](docs/operations.md)
-
-## 验证状态
-
-这是持续开发中的源码版本，不表示所有质量门禁已经通过。已实测独立环境启动、
-空库迁移、登录、无模型工作流、素材持久化及前端联调。
-目前仍有迁移 0045 对应的数据库测试隔离问题，以及 MessagePack 依赖安全告警待处理。
-不要关闭测试或审计来隐藏这些问题，详见[本地验证说明](docs/local-development.md)。
-模型生成、知识库和沙箱服务需要另外配置并在自己的环境验收。
-
-## 安全与许可证
-
-不要提交真实密钥、密码、私有配置、上传文件或构建产物；测试夹具中的凭据仅为合成数据。
-当前 API 在正式环境也开放 Swagger，需要时在反向代理限制访问。
-公开服务前检查出站白名单和资源授权边界。
+## 许可证
 
 CreativeFlow 基于 [AIDotNet/Sol](https://github.com/AIDotNet/Sol) 二次开发。
-上游代码采用 MIT 许可证，原版权声明 `Copyright (c) 2026 AIDotNet`
-及完整许可文本保留于 [LICENSE](LICENSE)。此处说明代码来源，不代表
-AIDotNet 负责维护或认可 CreativeFlow。
+上游 MIT 许可及 `Copyright (c) 2026 AIDotNet` 声明保留于 [LICENSE](LICENSE)。
+该说明不代表 AIDotNet 维护或认可 CreativeFlow。

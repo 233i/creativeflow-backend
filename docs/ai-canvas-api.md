@@ -1,208 +1,96 @@
-# AI 与画布 API
+# 模型、画布与媒体 API
 
-设备识别之外的第二个功能域：AI 渠道配置、图片/视频/文本生成、画布存储。
+本文是接口分组和使用顺序说明；精确请求字段、校验规则和完整路由请查看运行中实例的
+`/swagger/index.html` 或 [Controllers](../src/CreativeFlow.Api/Controllers/)。
+账号、管理员、API Key 的区别见[认证与权限](authentication.md)。
 
-## 归属模型
+## 模型配置：管理员维护，用户读取目录
 
-**所有资源都以 `device_id` 为归属键，绝不用 `visitor_id`。**
+渠道和模型是**全局管理资源**，不是每个设备单独保存的配置。
+普通用户可以读取允许使用的目录，但不能写渠道或获取密钥明文。
 
-`visitor` 可能由 `ProbabilisticCoarse` 的 0.6 置信度猜测拼装而成（见 [device-identification.md](device-identification.md)）。若按 visitor 取配置，共用 NAT 出口的办公室里陌生人会读到彼此的 API Key。`device_id` 只来自确定性通道（Cookie 1.0 / localStorage 恢复 0.95）。
+| 路由 | 用途 |
+| --- | --- |
+| `GET /api/v1/ai/providers` | 已登录用户读取渠道/模型目录 |
+| `GET /api/v1/ai/model-slots` | 读取模型用途配置 |
+| `GET/POST /api/v1/admin/ai/providers` | 管理员查询/新增渠道 |
+| `PATCH/DELETE /api/v1/admin/ai/providers/{id}` | 修改/删除渠道 |
+| `POST /api/v1/admin/ai/providers/{id}/check` | 上游连通性检查 |
+| `GET /api/v1/admin/ai/providers/{id}/upstream-models` | 尝试读取上游模型目录 |
+| `POST /api/v1/admin/ai/providers/{id}/models` | 手动添加模型 |
+| `POST /api/v1/admin/ai/providers/{id}/models/import` | 批量添加模型 |
+| `PATCH/DELETE /api/v1/admin/ai/models/{modelId}` | 修改/删除模型 |
+| `GET /api/v1/admin/ai/model-slots` | 读取各用途的可选模型 |
+| `PUT /api/v1/admin/ai/model-slots/{kind}` | 保存用途模型配置 |
+| `POST /api/v1/admin/ai/config/import` | 管理员批量导入配置，DTO 见 Swagger |
 
-所有端点从 `DeviceContextMiddleware` 读 `device_id`，**无 Cookie 一律 401**，且不会隐式铸造身份。
+上游没有模型列表接口不代表不能调用；可手动填写上游模型 ID。
+模型的本地 UUID、上游 `modelKey`、展示名称是三个不同概念。
+媒体工作流从管理员为相应用途启用的模型中选择，只有一个选项时默认选中。
+通用编排 LLM 使用其支持协议和能力的模型目录，不等同于媒体用途槽位。
 
-「不存在」与「属于别的设备」一律返回 **404 而非 403**——否则 404/403 的差异会变成一个 ID 探测信道。归属判断写在仓储的 SQL 谓词里，不是事后 if，调用方无从遗漏。
+### 协议与端点
 
-## 端点
+协议决定请求格式，不等同于厂商品牌。当前协议定义见
+[`ProviderType`](../src/CreativeFlow.Domain/Ai/ProviderType.cs)，解析见
+[`AiProvider.ResolveProtocol`](../src/CreativeFlow.Domain/Ai/AiProvider.cs)：
 
-### 渠道与模型
+1. 模型显式协议覆盖优先。
+2. 图片/视频模型可继承与类别兼容的渠道协议。
+3. 渠道协议不兼容时，图片默认 `openai-images`，视频默认 `seedance-video`。
+4. 重排序类别默认 `rerank`；其他类别按渠道协议解析。
 
-```
-GET    /api/v1/ai/providers                      当前设备的渠道（Key 已掩码）
-POST   /api/v1/ai/providers                      新建
-PATCH  /api/v1/ai/providers/{id}
-DELETE /api/v1/ai/providers/{id}
-POST   /api/v1/ai/providers/{id}/check           连通性测试
-GET    /api/v1/ai/providers/{id}/upstream-models 拉取上游 /v1/models
-POST   /api/v1/ai/providers/{id}/models          新增模型
-POST   /api/v1/ai/providers/{id}/models/import   批量导入（已存在的跳过）
-PATCH  /api/v1/ai/models/{modelId}
-DELETE /api/v1/ai/models/{modelId}
-POST   /api/v1/ai/config/import                  URL 快速配置落库
-```
+不要假设只改模型名称就能把 OpenAI 视频接口变成 MiniMax 原生接口。
+Base URL 不能带用户信息、查询参数或 fragment；服务端按协议去掉会重复追加的后缀。
+模型能保存也不等于网络已放行，另需配置[对应端点许可](configuration.md#endpoint-allowlists)。
+`supportsVision` 等能力必须与真实模型一致。
 
-### URL 渠道快速配置
+### 密钥
 
-页面入口支持在 hash 中携带配置：
+服务端使用 `Ai:EncryptionKey` 加密渠道密钥，普通目录只返回是否已设置和掩码。
+更新接口中，密钥字段省略表示保留，空串表示清除，非空值表示替换；
+批量导入接口不支持用空串清除。密钥不能写入工作流图、前端环境变量或分享链接。
+当前前端没有接通 URL 自动导入页面流程；残留的解析工具不代表可用的产品入口。
 
-```text
-/#settings=base64url:<UTF-8 JSON 的 Base64URL 编码>
-```
+## 画布与资产
 
-规范载荷是一个 `providers` 数组，可同时配置多个渠道。内置渠道只需要 `builtinId` 和
-`apiKey`；前端会从内置预设补全名称、协议、Base URL、预设版本和默认模型：
+用户先登录并完成设备握手，再调用 `/api/v1/canvas` 列表/创建接口及
+`/api/v1/canvas/{id}` 读取、保存、删除接口。
+画布图以 JSON 保存，服务端持久化与前端本地缓存各有职责，不能把临时 `blob:` URL
+当成可跨会话恢复的素材地址。
 
-```json
-{
-  "providers": [
-    { "builtinId": "openai", "apiKey": "sk-example" }
-  ]
-}
-```
+上传图片使用 `POST /api/v1/canvas/assets`（multipart），素材库与分组在
+`/api/v1/canvas/assets` 下。素材选择复用已有 ID，不重复上传。
+读取/下载受账号和素材状态校验，图片需通过 MIME 与文件头校验，不能上传可执行 SVG。
+删除走回收站、引用检查和保留期，不是“先删数据库行再删文件”。
+完整生命周期见[资产中心](asset-center.md)。
 
-自定义渠道需要 `name`、`type` 和 `baseUrl`，`apiKey` 与 `models` 可省略。省略模型不会触发
-服务端网络请求，渠道会保留为空，之后可在设置页手动添加或拉取：
+## 生成与恢复
 
-```json
-{
-  "providers": [
-    {
-      "name": "My Relay",
-      "type": "openai-chat",
-      "baseUrl": "https://relay.example.com/v1",
-      "apiKey": "key-example",
-      "models": [
-        { "id": "my-model", "name": "My Model", "category": "chat" }
-      ]
-    }
-  ]
-}
-```
+| 路由 | 运行方式 |
+| --- | --- |
+| `POST /api/v1/ai/image-jobs` | 持久化异步图片任务；画布应使用这条路径 |
+| `GET /api/v1/ai/image-jobs/{jobId}` | 查询既有任务，不重复生成 |
+| `POST /api/v1/ai/images` | 另有同步生成接口；不要与异步任务混淆 |
+| `POST /api/v1/ai/text` | 文本生成 |
+| `POST /api/v1/ai/videos` | 提交视频任务，返回 `jobId` |
+| `GET /api/v1/ai/videos/{id}` | 查询视频状态 |
+| `DELETE /api/v1/ai/videos/{id}` | 请求取消视频任务 |
 
-`autoApply: true` 只对不携带 `apiKey` 的链接生效。任何带 Key 的链接都必须经过确认，预览
-会显示脱敏 Key，且参数会在页面加载后从地址栏移除。`?settings=`、原始 JSON 和旧的
-`base64:` 格式仍兼容，但新生成的链接应使用 hash + `base64url:`，避免 Key 进入请求日志。
+工作流、Agent 与画布图片任务有不同提交入口，共享模型和素材组件。
+“重新查询”“重新下载/保存”“重新生成”成本不同，详见[图片任务](image-generation-jobs.md)。
+任意外部 URL 不应作为素材权限的替代；参考图使用当前范围内的素材。
 
-### 生成
+## Agent、MCP 与 Skills
 
-```
-POST   /api/v1/ai/images     → { assets: [{ url, mediaType, assetId }] }
-POST   /api/v1/ai/text       → { text }
-POST   /api/v1/ai/videos     → { jobId }
-GET    /api/v1/ai/videos/{id} → { status, progress, assetUrl, error }
-DELETE /api/v1/ai/videos/{id} 取消（已完成的任务是 no-op）
-```
+Agent 的会话、消息和运行位于 `/api/v1/agent/`；Skill 上传扫描、安装与管理位于
+`/api/v1/skills/`，具体绑定与审批字段见对应 Controller/Swagger。
+Skill 包扫描不等于执行沙箱。
 
-### Agent 与 Skills
+脚本执行使用 **OpenSandbox**，不是 API 内执行脚本，也不是旧的 Unix socket runner。
+通过 `Skills:SandboxEnabled` 开启，控制平面地址、密钥和执行镜像由部署配置提供。
+Agent Skill 脚本经过审批；通用编排 `script` 节点按已发布的节点契约执行，
+不要把二者的审批交互混用。未配置沙箱时不应宣称脚本功能可用。
 
-```
-POST   /api/v1/agent/sessions
-GET    /api/v1/agent/sessions?canvasId=...
-GET    /api/v1/agent/sessions/{id}/messages
-DELETE /api/v1/agent/sessions/{id}/messages
-POST   /api/v1/agent/sessions/{id}/runs
-GET    /api/v1/agent/runs/{id}
-GET    /api/v1/agent/runs/{id}/events?afterSeq=...
-DELETE /api/v1/agent/runs/{id}
-GET    /api/v1/agent/tools
-
-GET    /api/v1/skills/
-GET    /api/v1/skills/{id}
-POST   /api/v1/skills/scan        multipart，只扫描不安装
-POST   /api/v1/skills/            multipart，重新扫描同一上传并安装
-DELETE /api/v1/skills/{id}
-```
-
-Skill 安装接受 bare `SKILL.md` 或 ZIP。ZIP 逐 entry 读取，拒绝绝对路径、`..`、反斜杠、重复归一化路径、symlink、嵌套压缩包与异常压缩比，并限制上传大小、解压总量和 entry 数。danger 级发现必须二次确认；风险扫描不被当作沙箱。
-
-Agent 只在 run 开始时向模型披露 Skill 的 slug/name/description；完整正文和资源需通过 `load_skill` 按需读取。`run_skill_script` 只在隔离 runner 健康且存在脚本 Skill 时出现，每次执行均需审批。
-
-脚本不会在 `CreativeFlow.Api` 进程执行。API 通过 Unix socket 把单个 Skill 的文件发送给独立 runner；runner 容器无网络、无 CreativeFlow 配置/凭据/数据库卷、根文件系统只读。支持非特权 user namespace 的 Linux 内核用 bubblewrap 建立每-job user/pid/network/mount namespace；禁用该能力的 Docker Desktop 使用受限 chroot + 每-job 唯一 UID，且子进程看不到 `/proc`、控制 socket、其他 job 或容器根。仅固定解释器 `.sh`/`.py`/`.js` 可用，参数不经过 shell，CPU/地址空间/文件/进程/输出/时限均有硬上限。runner 不可用时 prose/resource Skills 仍可加载，只隐藏脚本工具。
-
-### 画布与资产
-
-```
-GET    /api/v1/canvas             列表（含 SQL 计算的 nodeCount，不含图本体）
-POST   /api/v1/canvas
-GET    /api/v1/canvas/{id}
-PUT    /api/v1/canvas/{id}        不存在则按该 id 创建
-DELETE /api/v1/canvas/{id}
-POST   /api/v1/canvas/assets      上传图片（multipart）
-GET    /api/v1/canvas/assets      素材库列表（?kind=image|video，?limit 上限 200）
-GET    /api/v1/canvas/assets/{id} 流式返回字节
-DELETE /api/v1/canvas/assets/{id} 移入回收站；永久清理由资产中心检查引用与保留期后执行，保留审计墓碑
-GET    /api/v1/canvas/assets/groups          分组列表（含每组素材数）
-POST   /api/v1/canvas/assets/groups          新建分组（{ name }）
-PATCH  /api/v1/canvas/assets/groups/{id}     重命名分组（{ name }）
-DELETE /api/v1/canvas/assets/groups/{id}     删除分组，素材回到未分组
-PATCH  /api/v1/canvas/assets/group           批量归组（{ assetIds, groupId }，null 表示移出）
-```
-
-素材分组与素材一样按设备隔离。分组只是元数据；删除分组不会删除素材文件，外键会把
-其中的素材置为未分组。
-
-**删除的顺序是先删行、后删文件**：若删文件失败，结果是一个孤儿文件，而不是一行指向不存在文件的记录。仍然引用该资产的画布节点会显示破图——这是有意的取舍，否则「可能被引用」会让素材库根本无法清理。
-
-## 协议支持矩阵
-
-`ProviderType` 描述的是**请求如何构造**，与厂商无关——多数厂商都讲 `openai-chat`。
-
-| 协议 | 文本 | 图片 | 视频 |
-|---|---|---|---|
-| `openai-chat` | ✅ `/chat/completions` | — | — |
-| `openai-responses` | ✅ `/responses` | — | — |
-| `anthropic` | ✅ `/v1/messages` | — | — |
-| `gemini` | ✅ `generateContent` | ✅ `generateContent` | — |
-| `openai-images` | — | ✅ `/images/generations`、`/images/edits` | — |
-| `openai-video` | — | — | ✅ `/videos` |
-| `minimax-video` | — | — | ✅ `/videos`，保留原有中转兼容格式 |
-| `minimax-h3` | — | — | ✅ 官方 `/v2/video_generation`、`/v2/query/video_generation/{task_id}` |
-| `xai-video` | — | — | ✅ `/videos/generations`、`/videos/{request_id}` |
-| `seedance-video` | — | — | ✅ `/contents/generations/tasks` |
-
-前端在同级 `客户端实现` 维护同一份矩阵，驱动「尚未支持」
-标记。新增协议但客户端未就绪时，把该项标为 `planned`，UI 会自动禁用相关模型。
-
-**MCP runtime 支持 Streamable HTTP 与 legacy SSE**；stdio 配置仍可存储，但服务端不会启动本地进程。所有 MCP tool 每次调用都必须由用户审批，URL 经 DNS 固定与 SSRF 私网过滤，header/env 值只以服务端密文保存。
-
-### 协议解析：模型覆盖渠道
-
-```
-model.Type ?? (category == Image ? openai-images
-             : category == Video ? seedance-video
-             : provider.Type)
-```
-
-图片/视频模型在没有显式覆盖时不回落到渠道协议——渠道通常按其**对话**协议声明，而它的图片路由讲的是另一套。
-
-这条规则在 `AiProvider.ResolveProtocol`（后端）与 `resolveProtocol`（前端 `features/ai/types.ts`）中各实现一次，**两处必须一致**：前端据此决定渲染哪些参数控件，后端据此决定分发给哪个客户端。
-
-### Base URL 归一化
-
-`AiProvider.NormalizeBaseUrl` 在**服务端**的每个写入路径执行。用户粘贴的通常是厂商文档里的 OpenAI 兼容地址，而各协议客户端会自己拼接路径：
-
-- `anthropic`：剥掉尾部 `/v1`，否则变成 `…/v1/v1/messages`
-- `gemini`：剥掉尾部 `/openai`
-
-前端也做一次（即时反馈），但**服务端才是权威**——API 可被直接调用，分享链接导入也不该依赖发送方记得归一化。
-
-## API Key
-
-AES-256-GCM 加密后入库，密钥来自 `Ai:EncryptionKey`（见 [operations.md](operations.md)）。
-
-- 每次加密生成新的 96 位 nonce。GCM 下 nonce 重用会同时泄漏两段明文的异或与认证子密钥，因此绝不复用
-- **明文永不出现在任何响应体中**。`ProviderResponse` 根本没有这个字段，`AiContractMapper` 是唯一的序列化入口，只读 `HasApiKey` 与尾四位掩码
-- 三态更新语义：字段缺省=保持不变（改 Base URL 的常见情形）、空串=清除、有值=替换。单纯可空类型表达不了「保持」，而弄错会静默抹掉用户的 Key
-
-## 生成的边界条件
-
-**参考图只接受自家资产路径**。`/api/v1/canvas/assets/` 之外的 URL 一律忽略，不会去拉取——否则这个端点就成了服务端请求伪造的跳板。实测 `169.254.169.254` 元数据端点与 `file:///etc/passwd` 均被静默丢弃。
-
-**上传做双重校验**：MIME 白名单（png/jpeg/webp/gif）+ 文件头魔数比对。Content-Type 是客户端可伪造的，只信它就能把任意内容存成图片类型再被取回。**SVG 被排除**——它是可携带脚本的 XML，直接导航到存储的 SVG 会以同源身份执行。资产响应带 `X-Content-Type-Options: nosniff`。
-
-**视频是彻底异步的**。POST 在厂商受理后立即返回 jobId，由 `VideoJobPoller` 在服务端推进，因此关掉标签页任务照样跑完。客户端轮询自家的行，而不是挂住连接几分钟。
-
-## 画布存储
-
-`canvas.graph` 是 **jsonb，对服务端不透明**——由画布客户端产出与消费，服务端只存取。逐节点建行不会带来任何好处（图总是整体读写），却会把 schema 绑死在一个变更频率高得多的客户端模型上。
-
-客户端同时保留 localStorage 副本作即时缓存与离线编辑，服务端是持久副本；加载时取 `updatedAt`/`savedAt` 较新者。
-
-**持久化前会剥离 `data:` 与 `blob:` URL**。前者会把数 MB base64 写进每次保存与每帧撤销快照；后者更隐蔽——体积小、保存正常，但随文档卸载即失效，还原回来就是一个无法恢复的破图节点。剥离后节点退回可重新上传的空状态。
-
-带 `jobId` 的视频节点是例外：它的工作在服务端继续，因此保留 `running`，由客户端在 hydration 时重新挂上轮询。
-
-## 相关文档
-
-- [device-identification.md](device-identification.md) —— 归属键的由来与置信度上限
-- [aot-constraints.md](aot-constraints.md) —— 为何上游 payload 一律用 `JsonObject`/`JsonDocument` 而不建 DTO
-- [operations.md](operations.md) —— `Ai:*` 配置项、资产目录备份、视频轮询的单实例假设
+MCP 远程工具也有自己的审批和网络校验，不会因为保存了工具配置而自动执行。
+画布工具的浏览器执行器绑定、工具回执和审批使用[SignalR](realtime-signalr.md)。

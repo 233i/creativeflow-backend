@@ -1,7 +1,24 @@
 # 工作流对外 API：SSE 流式返回
 
 需要接入标准 AG-UI 客户端时，使用 [AG-UI 工作流接口](./ag-ui-workflow-api.md)；本页描述的
-`external/v1` 自定义事件流继续保留，适合需要 `Last-Event-ID` 精确续读的调用方。
+`external/v1` 自定义事件流。它只对公开文本提供持久化续读，进度是实时快照；
+需要逐个节点事件与精确子帧续读时使用 AG-UI。
+
+## 接口选择与准备
+
+- `GET /api/external/v1/workflows`：已开放的发布目录。
+- `GET /api/external/v1/workflows/{id}`：发布版本的输入输出契约，用于动态渲染控件。
+- `POST /api/external/v1/assets/images`：使用当前工作流 Key 上传图片，返回 `assetId`。
+- `POST /api/external/v1/workflows/{id}/runs`：提交运行。
+- `GET /api/external/v1/runs/{runId}`：查询状态及最终 `outputs`。
+- `GET /api/external/v1/runs/{runId}/events`：订阅自定义 SSE。
+- `DELETE /api/external/v1/runs/{runId}`：请求取消，不等于删除审计记录。
+
+目录接口描述公开契约，不返回密钥或内部提示词。上传、运行、查询与取消使用 Bearer Key。
+Key 绑定工作流；知识库和 HTTP 凭据还需明确授权。`workflow_resource_denied`
+应检查这些授权和固定版本，不能靠重复提交解决。
+图片参数使用 `{"assetId":"..."}`，不能假设知道素材 UUID 就有权使用。
+服务端要求 POST 的 `Idempotency-Key` 为 1–200 字符，同一业务重试保持原值。
 
 ## 提交与订阅
 
@@ -52,7 +69,7 @@ curl -N 'https://your-domain/api/external/v1/runs/RUN_ID/events' \
 
 ```text
 event: run.progress
-data: {"runId":"RUN_ID","status":"running","progress":0.3333333333333333,"currentNode":{"id":"llm","type":"llm"},"outputs":null}
+data: {"runId":"RUN_ID","status":"running","progress":0.3333333333333333,"currentNode":{"id":"llm","name":"回答问题","type":"llm"},"outputs":null}
 
 id: RUN_ID:1
 event: output.delta
@@ -89,11 +106,11 @@ curl -N 'https://your-domain/api/external/v1/runs/RUN_ID/events' \
 - Key 无效返回 401；不是自己的运行返回 404；资源撤权返回 403。已建立的连接在每批数据发送前复验权限，失效时发送 `stream.error` 并关闭。
 - 订阅限流返回 429。当前默认每个 Key、每个 API 进程最多 8 个连接，单进程总计 128 个；可通过 `ExternalWorkflowApi:MaxStreamsPerApiKey` 和 `ExternalWorkflowApi:MaxConcurrentStreams` 调整。每次建立连接还计入原状态读取速率。
 - 客户端掉线、关闭订阅或读取过慢不会取消工作流。需要取消时显式 DELETE statusUrl。
-- 重新 POST 时必须保留原幂等键、inputs 和 stream 值。改动任一项返回 409；新业务任务使用新幂等键。旧的非流式幂等摘要保持兼容。
+- 重新 POST 时必须保留原幂等键、inputs 和 stream 值。相同 Key/幂等键下改变参数返回 409；新业务任务使用新幂等键。
 
 ## JavaScript 与代理
 
-发布面板“调用示例”可切换 SSE 和查询模式，并下载 `/examples/workflow-stream.mjs`。示例使用 fetch 携带 Bearer Key，处理 UTF-8、跨网络块分帧、失败、取消与有限次数重连；浏览器原生 EventSource 构造参数无法设置 Authorization 请求头。
+发布面板“调用示例”可切换 SSE 和查询模式，并从前端站点下载 `/examples/workflow-stream.mjs`（[源码](https://github.com/233i/creativeflow-frontend/blob/main/public/examples/workflow-stream.mjs)）。示例使用 fetch 携带 Bearer Key，处理 UTF-8、跨网络块分帧、失败、取消与有限次数重连；浏览器原生 EventSource 构造参数无法设置 Authorization 请求头。正式业务通过自己的服务端保护 Key，不应把长期密钥嵌入前端包或 localStorage。
 
 ```javascript
 import { workflowEvents } from './workflow-stream.mjs';
@@ -116,8 +133,8 @@ try {
 
 Gemini 使用 `:streamGenerateContent?alt=sse`。使用精确端点许可时，要同时配置原 `:generateContent` 和这个完整流式地址；工作流已有公网 HTTPS 通配配置时无需增加地址。固定 alt=sse 是工作流模型通道的唯一查询参数例外，向量服务和其他参数仍保持原限制。
 
-协议依据：[HTML SSE 标准](https://html.spec.whatwg.org/multipage/server-sent-events.html)、[Claude streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)、[Gemini generate content](https://ai.google.dev/api/generate-content)。
-
 ## 验证
 
 `WorkflowStreamHttpTests` 经过真实 MVC、隔离 PostgreSQL、API Key 授权、MAF 和模型协议适配，使用可暂停的合成上游；验证完成前收到文本、断线续读、幂等冲突、取消、上游中断、Key 与知识授权撤销、重启遗留任务和日志生命周期。`WorkflowV2ModelTests` 验证实际模型服务与网络守卫，`TextStreamProtocolTests` 验证四种协议的正文、结束帧和真实 usage。前端测试覆盖发布面板切换和可下载客户端的解析、重连、撤权及取消。
+
+这些是测试覆盖入口，不代表当前数据库测试全部通过；执行前查看[测试环境与已知限制](local-development.md#tests)。

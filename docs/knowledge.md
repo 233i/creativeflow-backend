@@ -41,8 +41,9 @@ the same model. Remote providers may charge for indexing and queries.
 1. Create a knowledge library and select a saved embedding model.
 2. Upload UTF-8 text or Markdown documents.
 3. Preview the semantic chunks before indexing.
-4. Confirm the version; the index job embeds each chunk and records a
-   checkpoint so a failed job can resume.
+4. Confirm the version; the index job embeds chunks and records its status.
+   Inspect failure/checkpoint state before choosing an offered retry; do not
+   assume every upstream failure can resume without another embedding call.
 5. Activate a completed version explicitly.
 
 Chunking first recognizes headings, paragraphs, lists, code blocks, and tables,
@@ -53,15 +54,53 @@ offset so citations can point back to the normalized document.
 
 ## Retrieval
 
-Search combines lexical matching and vector similarity, then applies reciprocal
-rank fusion and optional reranking. Results are filtered by account, library,
-active version, and permissions. Neighboring chunks from the same document may
-be added as supporting context; the final context is trimmed by relevance when
-the model budget is reached.
+The retrieval settings select vector, keyword, or hybrid search; the default
+mode is `vector`, not hybrid. Hybrid search combines lexical and vector
+candidates with reciprocal rank fusion. Reranking is optional and requires a
+configured model and separate endpoint allowlist; it does not happen merely
+because an embedding model is configured. Rerank failure follows the configured
+fail/fallback policy, and score types must not be compared as if they shared a scale.
 
-Knowledge-answer nodes receive the original question and a separate retrieval
-query. The answer must cite chunks from the current retrieval result; missing
-or invalid citations block delivery instead of silently fabricating grounding.
+Workflow nodes pin a library/version and revalidate permissions; activating a
+new library version does not silently replace that snapshot.
+Retrieval checks library/version ownership and reads source text from the
+database before delivering context.
+
+The node controls `topK`, `neighborRadius`, and `maxContextChunks`.
+Primary hits come first, then deduplicated neighboring chunks from the same
+document. The final list is limited by **chunk count**, without cutting the
+body of a retained chunk. `maxContextChunks` defaults to 8 and allows 1–32.
+This is not an unlimited model context: the model's own context window,
+transport and output limits still apply.
+
+The answer question may differ from the retrieval query. Context must still
+originate from a valid retrieval result; library, version, chunk IDs, exact source
+text and resource access are checked. No hits produce an ungrounded fallback;
+an invalid citation blocks delivery. A successful run with `grounded:false`
+is not evidence that a useful answer was found.
+
+## Document limits
+
+The current parser accepts UTF-8 TXT/Markdown, not PDF, DOCX, spreadsheets,
+images or OCR input. Each full version has its own capacity budget.
+Preview shows normalized chunks; indexing and query calls may incur provider fees.
+
+The environment JSON files define these defaults; private configuration may override
+them within the validated implementation bounds:
+
+| `Knowledge:Quotas` | Development | Production | Maximum accepted |
+| --- | --- | --- | --- |
+| `MaxDocuments` | 32 | 128 | 128 per version |
+| `MaxDocumentBytes` | 256 KiB | 1 MiB | 1 MiB |
+| `MaxVersionBytes` | 512 KiB | 2 MiB | 2 MiB |
+| `MaxChunks` | 1,024 | 8,192 | 8,192 |
+| `MaxLibraryReservedBytes` | 64 MiB | 2 GiB | 2 GiB logical reservation |
+
+If no environment quota overrides are loaded, the code fallback is more
+restrictive (8 documents, 64 KiB/version, 128 chunks). Check the environment
+and the server-provided limits when the UI shows an unexpected cap; editing a
+frontend label cannot increase server capacity. These limits are validated by
+[`KnowledgeQuotas`](../src/CreativeFlow.Application/Features/Knowledge/KnowledgeQuotas.cs).
 
 ## Security and limits
 

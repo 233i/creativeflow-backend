@@ -1,10 +1,23 @@
-# 账号与登录
+# 认证与权限
+
+## 三种调用身份
+
+| 身份 | 入口与用途 | 不代表什么 |
+| --- | --- | --- |
+| 普通用户 session + 已绑定设备 | `/api/v1/auth/*`；画布、素材、用户工作流、Agent | 不能修改全局模型配置 |
+| 管理员 session | `/api/v1/admin/auth/*`；管理后台 | 不等于普通用户账号或外部 API Key |
+| 外部工作流 API Key | `Authorization: Bearer ...`；已发布工作流运行 | 不自动获得知识库、HTTP 凭据或任意素材权限 |
+
+首次启动由 `Admin:DefaultUsername/DefaultPassword` 引导管理员；已有账号不会被引导配置重置。
+用户注册不会创建管理员。外部 Key 在工作流发布管理中签发，按工作流及资源授权使用，
+接入见 [REST/SSE](workflow-api-streaming.md) 和 [AG-UI](ag-ui-workflow-api.md)。
 
 ## 用户状态
 
-CreativeFlow 强制登录。未登录时前端不会挂载画布，后端的设备握手、画布、渠道、素材、Agent、MCP、
-Skill 和生成接口也不会接受仅凭设备 Cookie 的请求。匿名访问只保留注册、登录、OAuth 回调、
-登录状态查询和健康检查所需的入口。
+CreativeFlow 的用户业务接口要求登录。未登录时前端不会挂载画布，后端的设备握手、画布、
+素材、Agent、MCP、Skill 和生成接口也不会接受仅凭设备 Cookie 的请求。
+注册/登录、OAuth、健康检查等有各自匿名入口；发布目录、签名媒体和 Swagger 的可见性
+另有规则，不能把“业务需要登录”理解为所有 URL 都有登录保护。
 
 邮箱密码或 GitHub 登录成功后，浏览器得到不透明的账号 session Cookie。随后第一次设备握手会
 创建或恢复 `device_id`，并把它写入 `creativeflow_account_device`。账号访问数据库时，服务端连接才会激活
@@ -75,10 +88,12 @@ session + 关联 device   -> 该账号已明确关联的全部 device_id
 在 GitHub OAuth App 中把 Authorization callback URL 配置为：
 
 ```text
-http://localhost:5298/api/v1/auth/callback/github
+http://localhost:3000/api/v1/auth/callback/github
 ```
 
-生产环境替换为浏览器实际访问的同源地址。通过环境变量提供 secret（不要提交到配置文件）：
+上例对应前端 3000 端口代理 API 的本地部署，`Authentication:PublicOrigin` 同样设为
+`http://localhost:3000`。生产环境替换为浏览器实际访问的 HTTPS 同源地址。
+通过环境变量提供 secret（不要提交到配置文件）：
 
 ```text
 Authentication__PublicOrigin=https://creativeflow.example.com
@@ -94,3 +109,10 @@ Authentication__GitHub__Scope=read:user user:email
 使用 Docker Compose 时，通过部署环境注入 `PUBLIC_ORIGIN`、`GITHUB_OAUTH_CLIENT_ID` 与
 `GITHUB_OAUTH_CLIENT_SECRET`，并将 `GITHUB_OAUTH_ENABLED` 设为 `true`。重启 API 后，
 OAuth 登录端点即可使用。
+
+## 设备信息的边界
+
+设备标识、localStorage 镜像和概率性 `visitor` 关联不是登录凭据。
+跨浏览器访问依靠同一账号的明确绑定，不依靠指纹猜测授予权限。
+`DeviceIdentity:Pepper` 用于指纹哈希，不是模型密钥；更换会影响已有指纹关联。
+部署者应在隐私说明中解释实际采集项、用途和保留策略，不能把哈希处理视为匿名化保证。

@@ -1,163 +1,84 @@
-# 架构
+# 后端架构与开发边界
 
-## 分层
+本文描述当前实现，不记录历史迁移过程。部署方式见[部署说明](deployment.md)，
+数据存储见[数据模型](data-model.md)。
 
-```
-CreativeFlow.Domain          零外部依赖（无 NuGet、无 ProjectReference）
-   ▲
-CreativeFlow.Application     接口（端口）+ 用例 + 契约
-   ▲
-CreativeFlow.Infrastructure  Dapper/Npgsql/Redis/RabbitMQ 实现
-   ▲
-CreativeFlow.Api             组合根 · MVC Controllers · HTTP Handlers · SignalR · 中间件
-```
+## 项目分层
 
-依赖箭头**只能向内**。`CreativeFlow.Api` 是唯一允许引用全部层的项目。
+| 项目 | 职责 | 不应承担 |
+| --- | --- | --- |
+| `CreativeFlow.Domain` | 业务实体、标识、枚举、不变量 | I/O、框架服务和 NuGet 依赖 |
+| `CreativeFlow.Application` | 用例、端口、DTO、工作流规则与节点执行器 | HTTP 响应、SQL、具体模型 SDK |
+| `CreativeFlow.Infrastructure` | PostgreSQL、缓存、消息、文件、模型协议和 MAF 适配 | 依赖 API 的 Controller/Hub |
+| `CreativeFlow.Api` | 组合根、Controller、HTTP Handler、中间件、SignalR | 直接执行 Dapper 查询 |
 
-## 各层职责
+内层不引用外层。API 装配实现；业务服务使用构造函数注入。
+后台 Worker 创建作用域，执行上下文只传运行标识、输入和快照，不充当服务容器。
 
-### CreativeFlow.Domain
-身份类型与不变量。`DeviceId`/`VisitorId`（UUIDv7 包装）、`Device`/`DeviceLink` 实体、`LinkMethod` 枚举、`LinkConfidence` 值对象（强制概率性关联的 0.6 上限）。
+## 三条运行路径
 
-不含任何 I/O、任何框架类型。想在这里加包引用时，说明该类型其实属于 Application。
+- **自由画布与媒体任务**：用户保存画布、上传或选择素材，图片任务和视频任务各自持久化状态；
+  不等同于提交一个工作流。
+- **工作流**：媒体创作与通用编排保持独立图模型；共享发布、队列、运行记录、权限和素材边界。
+  入队前校验图与输入，运行固定快照，节点输出持久化后才推进后继节点。
+- **Agent**：推进模型轮次、执行工具与审批、记录消息及事件。浏览器画布工具通过 SignalR
+  回传结果；与后台工作流执行不是同一个交互协议。
 
-### CreativeFlow.Application
-定义**端口**（`IDeviceRepository`、`ICacheStore`、`IEventPublisher`、`IRealtimeNotifier`…）与**用例**（`ResolveDeviceIdentity`、`GenerateImagesUseCase`、`GenerateTextUseCase` 等）。账号端口还定义 provider-neutral 的 OAuth identity、session 和 account-device bridge。用例及验证器由该层的 `AddApplication` 显式注册。
+Agent 与工作流只注册 MAF 执行引擎。MAF 适配位于 Infrastructure，原业务组件仍负责
+授权、图校验、工具审批、队列、模型协议、事件顺序和文件保存。
+AG-UI 是已有工作流运行的传输适配，不是第二套执行器，也不自动提供多轮会话记忆。
 
-关键设计：缓存与消息端口签名里带 `JsonTypeInfo<T>`，使序列化契约成为调用方必须显式提供的依赖，避免不同交付通道产生反射回退或命名差异。
+## HTTP 与认证
 
-### CreativeFlow.Infrastructure
-实现端口。**所有 Dapper 调用点都必须在这里**——原因见下。
+`Controllers/` 声明方法、路径、绑定和依赖，`Http/Handlers/` 负责交付层编排与响应映射。
+与 HTTP 无关的规则放入 Application。精确路由和 DTO 以 Controller、Swagger 为准，
+不在架构文档中维护易过期的路由数量。
 
-### CreativeFlow.Api
-组合根与交付层。`Controllers/` 声明路由和模型绑定，`Http/Handlers/` 编排现有 HTTP 用例，另含
-SignalR Hub、中间件与 `ApiJsonContext`。新业务规则应优先下沉到 Application 用例。
+普通用户使用账号 session 与已绑定设备，管理员使用独立 admin session，
+外部工作流使用 API Key。设备概率关联不授予账号权限，详见[认证与权限](authentication.md)。
 
-## 关键位置决策
+## 当前发布模式
 
-### 1. 为什么所有 Dapper 调用必须集中在 Infrastructure
+API 项目显式设置 `PublishAot=false`、`IsAotCompatible=false`，采用 **MVC/JIT**。
+不要按旧的 Native AOT 验收说明发布 API。
 
-Dapper.AOT 通过 **C# interceptor** 工作。interceptor 是编译期产物，**只在包含调用点的编译单元内生效，不跨 `ProjectReference` 传递**。
+类库仍保留静态约束：
 
-后果：调用点若离开 Infrastructure，就不会获得该项目生成的静态映射，并会绕过 DAP 构建诊断。
+- Dapper 调用集中在 Infrastructure，同一编译单元的 Dapper.AOT interceptor 才能处理这些调用。
+- `Directory.Build.props` 将 `DAP001;DAP013;DAP015;DAP016;DAP017` 设为构建错误。
+- API 不直接引用 Dapper；不要在 Controller/Handler 中增加数据库查询。
+- 关键服务、验证器显式注册；启动启用作用域和构造依赖验证。
+- 依赖版本由 `Directory.Packages.props` 和锁文件控制，SDK 由 `global.json` 固定。
 
-防护：`CreativeFlow.Api.csproj` **完全不引用 Dapper**，因此数据访问泄漏会直接编译失败。这机械性地强制了
-Clean Architecture 的“数据访问只在一层”。
+标准发布：
 
-### 2. 为什么 `CreativeFlowHub` 在 CreativeFlow.Api 而不是 Infrastructure
-
-Hub 是**交付机制**，等同 Controller，属最外层。另外 JSON hub protocol 的 resolver 需要覆盖所有过线类型，Hub 与其 `JsonSerializerContext` 同处一个程序集，源生成器才能获得完整视图。
-
-`IRealtimeNotifier` 接口定义在 Application，但实现 `SignalRNotifier` **也在 CreativeFlow.Api**——因为它需要 `CreativeFlowHub` 类型，放 Infrastructure 会把交付层类型拖进内层。组合根实现 Application 接口是正统 Clean Architecture 做法。
-
-### 3. 为什么需要两个 JsonSerializerContext
-
-| Context | 位置 | 覆盖 |
-|---|---|---|
-| `ApiJsonContext` | `CreativeFlow.Api/Serialization/` | MVC、SignalR 过线 DTO |
-| `IntegrationJsonContext` | `CreativeFlow.Infrastructure/Serialization/` | RabbitMQ 事件、Redis 缓存信封 |
-
-不能合一：Infrastructure 不允许引用 Api。共享的过线 DTO 放 `CreativeFlow.Application/Contracts/`，两个生成器都能看到。`TypeInfoResolverChain` 支持多个 resolver，组合无冲突。
-
-`ApiJsonContext` 同时注册到 MVC `JsonOptions` 和 SignalR resolver chain，保证 HTTP 与实时通道的
-命名和枚举契约一致。
-
-### 4. 为什么 Controller 与 Handler 分开
-
-Controller 只表达 HTTP 语义：方法、路径、绑定来源、限流与构造函数依赖。迁移前 Endpoint 中的
-编排逻辑保留为返回 `IActionResult` 的内部 Handler，使公开契约迁移与业务重写解耦。
-`ControllerRouteTests` 锁定 116 项路由签名，其中一项同时支持 GET/HEAD，共 117 个方法/路径组合。
-后续修改某个功能时，再把与 `HttpContext`/`IActionResult` 无关的规则逐步下沉到
-Application，而不让 Controller 重新膨胀。
-
-图片生成已完成首个迁移：`AiGenerationController → AiGenerationHandlers.GenerateImagesAsync → GenerateImagesUseCase`。
-Handler 验证交付层身份并映射原有 HTTP 结果，用例负责模型、参考图、蒙版、生成策略及素材保存顺序。
-文本生成沿同一边界迁移为 `AiGenerationController → AiGenerationHandlers.GenerateTextAsync → GenerateTextUseCase`。
-用例拥有渠道/聊天模型校验、密钥解密、参考素材读取、参数缺省及文本分派；`GenerateTextResult`
-表达业务结果，HTTP Handler 保留身份检查、MVC 401/404 与原有错误体映射。两个用例均为 scoped，
-Controller 只注入两个用例。素材管理仍沿原有 Handler 路径执行，后续按切片迁移。
-
-### 5. 账号作用域为何不把所有业务表改成 account_id
-
-业务表继续保留 `device_id`，用于浏览器级隔离并兼容现有仓储接口。登录后，API 在验证 session 与当前
-设备关联关系后，将 account id 写入本次数据库连接的 `creativeflow.account_id` session setting。
-`creativeflow_accessible_device_ids(device_id)` 再把当前设备扩展为账号明确关联的设备集合；没有有效账号
-session 时该函数仍只返回当前设备，作为数据库层纵深防御；HTTP 与 SignalR 业务入口会更早返回
-401。这使账号访问具备跨设备能力，同时避免把账号权限误授给只持有旧设备 Cookie 的请求。
-
-## 请求生命周期（设备握手）
-
-```
-POST /api/v1/device/handshake
-  │
-  ├─ Serilog 请求日志
-  ├─ DeviceContextMiddleware   读 Cookie → HttpContext.Items + 日志 scope（只读，不创建身份）
-  ├─ AccountContextMiddleware  校验不透明 session 与设备归属
-  ├─ DeviceController.Handshake         属性路由 + FromBody + 构造函数注入
-  │    └─ DeviceHandlers.HandshakeAsync
-  │         ├─ 无有效账号 session → 401
-  │         ├─ IValidator<DeviceSignalsPayload>   显式注册的 FluentValidation
-  │         └─ ResolveDeviceIdentity.HandleAsync  ← 核心用例（Application 层）
-  │              ├─ IDeviceRepository        Dapper.AOT（Infrastructure）
-  │              ├─ IFingerprintHasher       量化 + SHA256 + pepper
-  │              └─ IVisitorRepository       device_link 边写入
-  └─ DeviceCookie.Write        每次握手都补发，让确定性层尽快接管
+```bash
+dotnet restore CreativeFlow.slnx --locked-mode
+dotnet publish src/CreativeFlow.Api -c Release
 ```
 
-`DeviceContextMiddleware` **只读不写**：它从不创建身份。身份只由握手端点铸造，因此健康探针、爬虫等请求不会静默产生设备行。
+容器与自包含发布使用仓库 [Dockerfile](../src/CreativeFlow.Api/Dockerfile)。
+无需另行启用 `PublishAot`。
 
-## 构建期防护
+## 序列化与实时事件
 
-### MAF 运行时边界
+- MVC 与 SignalR 的 resolver chain 都插入 `ApiJsonContext`；新增过线 DTO 同步登记。
+- Redis/RabbitMQ 使用 `IntegrationJsonContext`，不依赖 API 程序集。
+- 缓存、消息端口显式传递 `JsonTypeInfo<T>`，不在调用方隐藏序列化策略。
+- SignalR 使用普通 Hub 和显式方法名，通过 `IRealtimeNotifier` 发送。
+  `SignalRNotifier` 位于 API，因为它依赖具体 Hub；这是交付层适配，不是基础设施反向依赖。
+- SignalR 通知不是持久化事件日志；HTTP 查询、工作流 SSE 和 AG-UI 的重连语义见各自文档。
 
-Agent 与工作流通过框架无关的运行端口固定使用 MAF，组合根各注册唯一实现。MAF 的 ChatClientAgent 和
-Executor 链仅在 Infrastructure 内部推进原业务轮次/节点；协议构造、审批、工具回执、
-图校验、素材保存、后台队列和取消/重启策略仍是原系统的唯一实现。
-Legacy 循环、选择器、灰度配置和绑定读写已删除；0024 迁移及旧表仅保留原结构，不参与运行。
-工作流继续/局部重跑仍使用原图快照、节点输出和视频任务检查点，不增加自动重生。
-缺失运行端口注册直接失败，没有另一套引擎兜底。生产 API/Infrastructure 锁定 MAF 及完整传递依赖。
-运行观察和发布边界见[运维说明](operations.md)。MAF 是 Agent 与工作流的唯一
-执行引擎；原业务持久化、权限、队列和媒体组件继续由应用层拥有。
+## 代码入口
 
-`scripts/verify-governance.sh` 汇总当前可离线于业务服务执行的构建、注释、回归测试和发布检查。
-项目引用与 Application 程序集依赖、Agent 宿主实例一致性、原有迁移字节均有测试约束。
-`tools/CreativeFlow.CodeQuality` 检查全部手写方法与字段说明，规则见[注释规范](coding-standards.md)。
+| 目录 | 内容 |
+| --- | --- |
+| `src/CreativeFlow.Application/Features/Workflow/Execution/` | 通用编排节点执行器与注册表 |
+| `src/CreativeFlow.Application/Features/Agent/` | Agent 用例和轮次规则 |
+| `src/CreativeFlow.Infrastructure/DependencyInjection/` | 持久化、AI、知识库和工作流注册 |
+| `src/CreativeFlow.Infrastructure/Persistence/` | 数据库仓储及迁移运行器 |
+| `src/CreativeFlow.Api/Controllers/` | 可调用 HTTP 接口 |
+| `src/CreativeFlow.Api/Hubs/` | SignalR 协议和组定义 |
+| `db/migrations/` | 不可原地改写的发布 SQL |
 
-`Directory.Build.props` 中两组设置承担主要防护职责：
-
-```xml
-<IsAotCompatible>true</IsAotCompatible>
-<WarningsAsErrors>$(WarningsAsErrors);DAP001;DAP013;DAP015;DAP016;DAP017</WarningsAsErrors>
-```
-
-- `IsAotCompatible` 在内层**类库**上开启 trim/AOT 分析器；MVC 宿主 `CreativeFlow.Api` 显式覆盖为 `false`
-- `DAP001` 等设为 error，把 Dapper.AOT 的静默回退变成编译失败
-
-包版本集中在 `Directory.Packages.props`（含一处安全提升：`Microsoft.OpenApi` → 2.7.5）。SDK 由 `global.json` 锁定 `rollForward: disable`。
-
-## 目录
-
-```
-src/CreativeFlow.Domain/Identity/          DeviceId, VisitorId, Device, DeviceLink, LinkConfidence, LinkMethod
-src/CreativeFlow.Application/
-  DependencyInjection.cs         AddApplication：用例及验证器显式注册
-  Abstractions/{Persistence,Caching,Messaging,Realtime,Security,Common}/   端口
-  Contracts/{Device,Realtime}/    过线 DTO（两个 JSON context 共享）
-  Features/Identity/              ResolveDeviceIdentity + AccountAuthService + Options + Validator
-  Features/Generation/            GenerateImagesUseCase + 业务结果
-  Events/                         集成事件
-src/CreativeFlow.Infrastructure/
-  DependencyInjection/           持久化、缓存、消息、身份与 AI 注册组；公共入口保持不变
-  Persistence/                    DapperModule, NpgsqlDataSourceFactory, 仓储, Migrations/
-  Caching/                        RedisCacheStore, RedisPresenceTracker, RedisDistributedLock
-  Messaging/                      连接提供者, 拓扑, 发布者, 消费者, 处理器注册表
-  Security/                       Sha256FingerprintHasher, IpPrefixExtractor
-  Health/ Options/ Common/
-src/CreativeFlow.Api/
-  Program.cs                      MVC/SignalR 组合根
-  Controllers/                   属性路由、模型绑定、限流、构造函数注入
-  Http/Handlers/                 HTTP 编排与响应映射（内部类型）
-  Http/Contracts/                API 层共享响应
-  Hubs/ Realtime/ Middleware/ Extensions/ Serialization/
-db/migrations/                    版本化 SQL（嵌入资源）
-```
+开发检查见[代码规范](coding-standards.md)与[本地测试](local-development.md#tests)。

@@ -80,6 +80,9 @@ including application-level migration logic. Do not substitute a loop of
 `psql -f` commands, edit applied SQL, or replace the checksum contract.
 The same migration chain supports a fresh empty database; no separate
 destructive reset script is required.
+For upgrades from database-backed media storage before migration 0040, first
+read [the data-preservation boundary](data-model.md). Do not add
+`--discard-database-files` just to make a failed migration proceed.
 
 ## 5. Start the API
 
@@ -90,8 +93,9 @@ docker run -d --name creativeflow-api --restart unless-stopped \
   -v /var/lib/creativeflow/assets:/var/lib/creativeflow/assets \
   -v /var/lib/creativeflow/skills:/var/lib/creativeflow/skills \
   creativeflow/api:release
+curl --retry 20 --retry-delay 3 --retry-all-errors --max-time 10 \
+  -fsS http://127.0.0.1:5298/health/ready
 curl -fsS http://127.0.0.1:5298/health/live
-curl -fsS http://127.0.0.1:5298/health/ready
 ~~~
 
 The name must be free; updating an existing instance requires your normal
@@ -111,11 +115,15 @@ streaming paths to the API on the same origin. Set
 for SignalR and disable response buffering on SSE routes. Configure proxy
 timeouts and request-body limits deliberately.
 
+The [frontend deployment guide](https://github.com/233i/creativeflow-frontend/blob/main/docs/deployment.md)
+provides standalone/Docker startup and a same-host Nginx example. The frontend
+requires its own build; publishing this backend does not deploy the UI.
+
 Keep PostgreSQL, Redis, RabbitMQ, Qdrant, and OpenSandbox off the public
 network. Swagger is enabled in Production too; restrict `/swagger` at the
 proxy if it is intended only for operators.
 
-Verify the public health endpoints, administrator login, a non-billable
+Verify private health endpoints (public exposure is optional), administrator login, a non-billable
 workflow, asset download/Range behavior, and incremental SSE events.
 Model tests may incur charges and should be an explicit operator decision.
 

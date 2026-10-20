@@ -15,9 +15,11 @@
 
 The file store contains uploaded assets, generated media, previews, and Skill
 packages. PostgreSQL contains metadata, checksums, workflow state, and audit
-records. Back up both stores together and test a restore regularly. Use a
-retention policy for failed jobs and orphaned files; do not remove an asset
-while a workflow, published API, or audit record still references it.
+records. Back up both stores together and test a restore regularly. Use the
+[asset center](asset-center.md) deletion preview and reference-aware cleanup;
+do not remove database rows or storage directories as a substitute.
+Capacity warnings do not automatically delete user files, and a recycle-bin
+entry is not yet reclaimed disk space.
 
 ## Secrets
 
@@ -36,8 +38,10 @@ a dedicated release job and keep Postgres:RunMigrationsOnStartup=false.
 ## Outbound access
 
 Model, embedding, HTTP-node, Qdrant, and OpenSandbox requests are restricted by
-configuration. Use private networking where possible and maintain a narrow
-allowlist of required endpoints. Review new endpoints as a security change.
+their separate configuration policies. Keep infrastructure private; do not
+assume model endpoint rules accept private addresses merely because Qdrant does.
+Review [configuration](configuration.md#endpoint-allowlists) before adding an
+endpoint or enabling a wildcard.
 
 ## Recovery
 

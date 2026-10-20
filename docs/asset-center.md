@@ -21,18 +21,22 @@ account. Storage markers and volume permissions are validated before writes.
 2. Use the asset picker to select private or explicitly published public assets.
 3. Move unwanted assets to the recycle bin. This does not immediately delete
    bytes and prevents new tasks from selecting the asset.
-4. Restore the asset before the retention period expires, or permanently clean
-   it only after the server rechecks every reference.
+4. Restore an asset while it has not been permanently purged. The retention
+   period is the minimum wait before cleanup, not an automatic deletion timer.
+   Permanent cleanup rechecks references and permissions.
 
-Published assets must be unpublished before deletion. Assets referenced by
-drafts, published workflows, active jobs, run snapshots, or audit records are
-protected. Permanent cleanup keeps an audit tombstone and never reuses the
-asset ID.
+Published assets must be unpublished before deletion. Active jobs and protected
+references (canvases, workflow drafts, deployments, templates and valid external
+uploads) block permanent cleanup. Historical references preserve the original
+by default; a separate explicit confirmation is required for eligible historical
+outputs. The deletion preview reports the actual blockers. Permanent cleanup
+keeps an audit tombstone and never reuses the asset ID.
 
 ## Authorization
 
-Every read, download, preview, reuse, and lifecycle action checks account scope,
-workflow/API-key scope, and the current asset state. Public publication does
+Each read, download, preview, reuse, and lifecycle action checks its applicable
+account/admin/workflow/API-key authorization and the current asset state; these
+are different entry points, not interchangeable credentials. Public publication does
 not expose the original owner, prompt, provider key, or generation parameters.
 External workflow callers may pass an asset ID only when the published workflow
 and its API key are authorized to use it.
@@ -43,3 +47,7 @@ The API applies MIME/signature validation, per-file and batch limits, thumbnail
 budgets, and storage warnings. These are configurable operational limits, not
 permission bypasses. A failed cleanup remains queryable and can be retried; it
 never triggers a new model generation.
+
+Capacity warnings do not automatically purge files. Logical asset totals can
+exceed physical storage because content is deduplicated; neither count is a
+measurement of immediately reclaimable host disk space.

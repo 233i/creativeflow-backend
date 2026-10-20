@@ -96,14 +96,9 @@ proxy where API documentation should not be public.
 
 The frontend is a separate Next.js repository:
 [creativeflow-frontend](https://github.com/233i/creativeflow-frontend).
-You need access to that repository (or a supplied source archive); a backend
-clone does not contain the UI. A GitHub 404 may mean the frontend repository
-is private, not that the backend failed to start. Use a matching frontend and
-backend release that connects to `/hubs/creativeflow`; an older frontend using
-`/hubs/sol` cannot receive realtime events from this backend. Do not follow old
-frontend instructions referring to
-`src/Sol.Api` or a shared remote database; this backend uses
-`src/CreativeFlow.Api` and the independent local stack above.
+A backend clone does not contain the UI. Use a matching frontend/backend
+revision and the independent local stack above. The current Hub is
+`/hubs/creativeflow`; the API source project is `src/CreativeFlow.Api`.
 
 ### Start the web app
 
@@ -180,23 +175,11 @@ dimensions; scripts need OpenSandbox. A healthy base API does not certify these
 services. Follow [knowledge setup](knowledge.md) and the sandbox section below
 before testing those features.
 
-For a local production-mode **frontend** test, stop its dev process and build
-with the same API origin. This frontend uses Next.js standalone output, so start
-that output with its public/static assets instead of `next start`:
-
-~~~bash
-API_BASE_URL=http://localhost:5298 SOL_API_ORIGIN=http://localhost:5298 \
-  NEXT_PUBLIC_SITE_URL=http://localhost:3000 npm run build
-cp -R public .next/standalone/
-mkdir -p .next/standalone/.next
-cp -R .next/static .next/standalone/.next/
-HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js
-~~~
-
-Rewrites and `NEXT_PUBLIC_*` values are baked into the build. Keep the backend
-in Development for HTTP-only local testing. A Production backend requires HTTPS
-for its Secure authentication cookies. The frontend Dockerfile already copies
-the standalone public/static assets during its build.
+For production-mode frontend verification, follow the
+[frontend deployment guide](https://github.com/233i/creativeflow-frontend/blob/main/docs/deployment.md).
+Keep the backend in Development for HTTP-only local testing; Production API
+cookies require HTTPS. Frontend production mode is not the same as changing the
+backend environment to Production.
 
 ## Tests
 
@@ -223,6 +206,11 @@ empty-database migration succeeds. Adapt the fixture isolation strategy before
 using this suite as a release gate; do not edit historical migrations or disable
 the failing cases. The strict verifier also checks XML comments and may report
 existing documentation gaps.
+
+The locked MessagePack dependency also has a reported security advisory
+(`NU1902` during restore/build). Treat this as a dependency maintenance item,
+not a startup configuration fix. A successful isolated startup does not mean
+the complete test or security gate is green.
 
 The [isolated integration harness](../tests/maf-e2e/README.md) provides
 loopback model fixtures, restart checks, and HTTP/SignalR contract checks

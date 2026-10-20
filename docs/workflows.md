@@ -1,75 +1,81 @@
-# 轻量工作流
+# 工作流：媒体创作与通用编排
 
-CreativeFlow 的工作流与自由画板是两个独立产品边界。现有 `/api/v1/canvas`、Canvas 数据和前端
-画板执行逻辑保持不变；工作流使用 `/api/v1/workflows`、独立数据表与后台执行器。
+两种工作流在工作流中心统一管理，但图模型、参数编辑和节点能力保持分离。
+自由画布 `/api/v1/canvas` 是另一个编辑入口，不等同于工作流定义。
 
-## 第一版节点
+## 节点能力
 
-| 节点类型 | 输入 | 输出 | 说明 |
-| --- | --- | --- | --- |
-| `text` | - | `text` | 固定提示词文本 |
-| `image` | - | `image` | 已上传到素材库的图片 |
-| `imageGenerate` | `prompt`、`image` | `image` | 使用管理后台的 `image` 模型槽位 |
-| `videoGenerate` | `prompt`、`image` | `video` | 使用管理后台的 `video` 模型槽位 |
-| `imageOutput` | `image` | `image` | 预览、下载并透传图片结果，可继续连接图片或视频生成节点 |
-| `videoOutput` | `video` | - | 播放和下载视频结果 |
-| `output` | `image`、`video` | - | 兼容已有工作流的旧版混合结果节点，不再提供新建入口 |
+| 类型 | 节点 | 用途 |
+| --- | --- | --- |
+| 媒体创作 | `text`、`image` | 提示词和素材输入 |
+| 媒体创作 | `imageGenerate`、`videoGenerate`、`videoExtend`、`videoFrame` | 图片生成、视频生成/延长/抽帧 |
+| 媒体创作 | `imageOutput`、`videoOutput` | 展示结果；旧图中的 `output` 由验证器继续识别 |
+| 通用编排 | `start`、`end` | 声明输入、公开输出契约 |
+| 通用编排 | `llm`、`parameterExtract`、`intentClassify` | 模型调用、结构化提取、意图路由 |
+| 通用编排 | `transform`、`script` | 有界变量/表达式转换、沙箱脚本 |
+| 通用编排 | `condition`、`merge`、`loop`、`batch` | 条件、结果汇合、循环、批处理 |
+| 通用编排 | `knowledgeRetrieve`、`knowledgeAnswer` | 检索、带引用约束的知识回答 |
+| 通用编排 | `httpRequest` | 调用外部接口，使用独立凭据授权 |
 
-服务端只接受以上白名单节点。通用编排图另外支持 `start`、`llm`、`parameterExtract`、
-`intentClassify`、`transform`、`script`、`condition`、`merge`、`knowledgeRetrieve`、
-`knowledgeAnswer`、`httpRequest`、`loop`、`batch` 和 `end`；端口按声明类型校验，未知节点、
-不兼容连线、缺失输入都会在排队前被拒绝。普通用户不能在工作流内覆盖渠道、模型或
-图片返回格式。
+实际可用节点还受环境能力开关、权限、协议和模型能力限制。
+读取 `/api/v1/workflows/capabilities` 或管理端对应能力接口，不要硬编码“所有节点可用”。
+通用编排持久化 `schemaVersion` 为 **1**；源码中的 `V2` 命名不是第二套外部 API 版本。
 
-## API
+模型选择规则见[模型配置](ai-canvas-api.md)。开始节点的 `image` 字段在运行时通过上传或素材库选择，
+外部调用以 `{"assetId":"..."}` 传参；后端读取授权素材并构造模型图片内容段，
+同时校验 `supportsVision`。不能把任意文件路径或公网 URL 当作已授权素材。
 
-```text
-GET    /api/v1/workflows
-POST   /api/v1/workflows
-GET    /api/v1/workflows/{id}
-PUT    /api/v1/workflows/{id}
-DELETE /api/v1/workflows/{id}
+## 定义、运行与发布
 
-POST   /api/v1/workflows/{id}/runs
-POST   /api/v1/workflows/{id}/runs/{runId}/resume
-GET    /api/v1/workflows/{id}/runs/{runId}/partial-rerun/preview?fromNodeId={nodeId}
-POST   /api/v1/workflows/{id}/runs/{runId}/partial-rerun
-POST   /api/v1/workflows/{id}/runs/{runId}/nodes/{nodeId}/retry
-POST   /api/v1/workflows/{id}/runs/{runId}/nodes/{nodeId}/skip
-POST   /api/v1/workflows/{id}/runs/{runId}/rollback
-GET    /api/v1/workflows/{id}/runs/latest
-GET    /api/v1/workflows/{id}/runs/{runId}
-DELETE /api/v1/workflows/{id}/runs/{runId}
-```
+| 入口 | 职责 |
+| --- | --- |
+| `/api/v1/workflows` | 用户工作流定义、运行与恢复 |
+| `/api/v1/admin/workflow-apis` | 管理工作流定义、调试与运行 |
+| `/api/v1/admin/workflow-center` | 管理后台聚合列表/详情与生命周期操作 |
+| `/api/external/v1` | API Key 调用已发布版本 |
+| `/api/agui/v1` | 同一外部工作流的 AG-UI 传输 |
 
-`POST runs` 保存一份不可变图快照并返回 `202 Accepted`。PostgreSQL 队列由
-`WorkflowRunWorker` 领取，按拓扑顺序执行节点；每个节点的状态、进度、输出素材 URL
-和错误分别写入 `workflow_node_run`。同一工作流同一时间只允许一个活动执行，避免重复
-点击造成重复调用。
+精确方法与子路径见 [Controllers](../src/CreativeFlow.Api/Controllers/) 或 Swagger。
+管理后台发布的是固定版本；随后修改草稿不会改变正在执行的快照或已发布输入输出。
+Key 的工作流访问权不自动包含知识库、凭据和素材授权，需分别配置。
 
-运行状态通过 SignalR 的 `WorkflowRunChanged` 消息推送。HTTP 运行查询是刷新页面、
-断线重连以及低频兜底使用的持久化真相来源。
+运行请求通过校验后保存快照并入队，返回 `202`，后台 Worker 通过唯一 MAF 引擎推进。
+排队、节点状态、输出与错误保存到数据库；关闭页面或断开 SSE 不等于取消运行。
+网页通知用 SignalR，刷新或断线后以 HTTP 查询恢复。
+外部运行另有队列/并发/幂等约束，不要把交互运行的重复提交限制套用为所有外部客户只能串行。
 
-## 运行和恢复
+## 调试与恢复
 
-- 浏览器关闭不会停止已经排队或正在执行的工作流。
-- 视频节点复用耐久的 `video_job` 与后台供应商轮询器。
-- 用户可以取消排队或执行中的运行；未执行节点会变为 `cancelled`。
-- API 进程重启时，无法安全续跑的旧 `running` 任务会明确标记为失败并释放活动运行约束，
-  防止项目永久卡死或重复生成。
-- 所有媒体结果仍进入统一素材存储，工作流图和运行记录只保存素材 URL/ID，不保存 Base64。
-- 成功运行可以选择一个节点进行部分重跑。新运行使用该成功记录的不可变图快照，复用不受
-  影响节点的持久化输出，只重新执行所选节点及所有依赖它的下游节点；无关分支不会重跑。
-- 失败运行也可以从指定失败节点重试，或在确认风险后跳过失败/排队节点再续跑。重试是新运行，
-  上游成功输出会复用；节点可通过 `retry.maxAttempts`、退避和错误码白名单配置最多五次自动重试。
-  远端可能已受理的模型或 HTTP 请求不会自动重发。
-- `loop` 按项执行子流程，`batch` 按批执行子流程；两者限制项数、并发度、批大小和失败策略，
-  结果按输入顺序交付并保存失败项。子流程不能包含知识库或 HTTP 节点，避免隐藏外部副作用。
-- `rollback` 创建从检查点衍生的新运行，不撤销已发出的外部副作用；需要撤销时必须在工作流中配置
-  明确的补偿 HTTP 操作。
+- 单节点调试使用该节点及已绑定输入，仍需校验资源权限；可能产生模型或外部调用费用。
+- `resume` 用于既有恢复语义，不代表“暂停等待用户输入”的多轮会话。
+- `partial-rerun/preview` 先显示影响范围；局部重跑根据原运行快照复用允许复用的输出。
+- 节点重试、跳过和检查点 rollback 均有状态/输入/引用约束，不保证每个失败节点都可跳过。
+- 自动重试可配置错误码、次数与退避；上游结果不明确时不应再次发出可能已计费的调用。
+- rollback 是创建检查点派生运行，**不会撤销外部系统已发生的副作用**。
+- 重启后对无法安全恢复的运行明确收尾，不能以重启为理由自动重新生成。
 
-`script` 节点仅在 OpenSandbox 开启后出现，支持受限 Python/JavaScript JSON 转换：脚本从标准输入读取
-绑定后的 JSON 对象，并且只能向标准输出写入一个符合 `outputFields` 的 JSON 对象。源码最多 32 KiB、
-超时最多 30 秒、输入最多 256 KiB；沙箱默认拒绝网络，脚本不会获得模型密钥、凭据、知识正文
-或工作流服务。沙箱未启用时能力接口不会公布该节点，发布也会拒绝包含脚本节点的版本。并行执行只在
-loop/batch 的有界子流程内进行，运行版本发布和积分预扣继续复用当前持久化运行模型。
+`loop`/`batch` 的子流程有项数、并发和失败策略约束；不支持把知识库或 HTTP 节点隐藏在子流程中。
+`script` 使用 OpenSandbox，支持受限 Python/JavaScript：标准输入为 JSON，标准输出为
+符合声明字段的 JSON；没有应用数据库、模型密钥或任意网络访问。
+仅配置一个节点不等于 OpenSandbox 已部署，见[沙箱启用](local-development.md#optional-opensandbox)。
+
+## 外部客户端如何选择
+
+| 需要 | 接口方式 |
+| --- | --- |
+| 提交任务后轮询最终结果 | REST：POST 返回运行 ID，再 GET 状态 |
+| 现有自定义事件客户端 | REST 提交 + `eventsUrl` SSE 订阅 |
+| 展示每个节点的执行事件、使用 AG-UI 客户端 | AG-UI POST 流，断线后 GET 精确续读 |
+
+两类流的游标不通用。自定义 SSE 的进度是状态快照，可能错过快速节点；
+AG-UI 的 step/state 来自持久化事务日志，包含节点 ID、名称和类型。
+`threadId` 只用于关联，不会自动加载之前对话。
+
+详见 [REST/SSE](workflow-api-streaming.md)、[AG-UI](ag-ui-workflow-api.md)、
+[HTTP 节点与凭据](workflow-http-request-node.md)和[可导入示例](examples/README.md)。
+
+## 删除与保留
+
+删除前检查已发布 API、模板引用及排队/运行任务；已发布模板先下架。
+默认保留生成素材与历史审计，不要把删除工作流理解为清空其所有结果文件。
+素材的回收和永久清理由[资产中心](asset-center.md)单独处理。

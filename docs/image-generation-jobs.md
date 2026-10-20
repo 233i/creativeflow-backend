@@ -28,8 +28,10 @@ concurrency limits.
 
 Provider output is written to the persistent file store and then associated with
 an asset record. PostgreSQL stores job state, checksums, and references, not
-the media bytes. A restart can resume a known download checkpoint; an unknown
-provider result is marked for review and is never regenerated automatically.
+the media bytes. Expired leases with a download checkpoint can resume saving.
+Without a checkpoint, recovery marks the task `failed` in the `generating`
+stage and reports an unknown upstream result; it never regenerates automatically.
+There is no separate `review` status.
 
 Downloads carry a provider key only when the final URL is same-origin with the
 configured provider base URL. Redirected external CDN URLs are fetched without
@@ -42,8 +44,15 @@ The authenticated routes are:
 - POST /api/v1/ai/image-jobs
 - GET /api/v1/ai/image-jobs/{jobId}
 - GET /api/v1/ai/image-jobs/by-submission/{key}
+- GET /api/v1/ai/image-jobs?canvasId={canvasId}
 - POST /api/v1/ai/image-jobs/{jobId}/retry-download
 - POST /api/v1/ai/image-jobs/{jobId}/regenerate
 
 External workflow API keys use the workflow publication contract instead of
 these account-session routes.
+
+Submission uses `{"key":"<UUID>","input":{...}}`; the key is a UUID in the body,
+not the external workflow's `Idempotency-Key` header. The response exposes
+`failureStage` and `canRetryDownload` so the client can present the correct
+recovery action. Regeneration takes a new key and reuses the original input
+snapshot; editing today's canvas does not change that snapshot.
