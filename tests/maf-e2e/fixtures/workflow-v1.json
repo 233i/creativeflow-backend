@@ -1,0 +1,27 @@
+{
+  "nodes": [
+    { "id": "text", "type": "text", "position": { "x": 0, "y": 0 }, "data": { "text": "synthetic workflow", "legacyUnknownField": [null, false, 0] } },
+    { "id": "image", "type": "image", "position": { "x": 0, "y": 250 }, "data": { "assetUrl": "__IMAGE_URL__" } },
+    { "id": "generate", "type": "imageGenerate", "position": { "x": 350, "y": 0 }, "data": { "count": 2, "quality": "high", "aspect": "16:9", "outputFormat": "png" } },
+    { "id": "image-out", "type": "imageOutput", "position": { "x": 700, "y": 0 }, "data": {} },
+    { "id": "video", "type": "videoGenerate", "position": { "x": 1050, "y": 0 }, "data": { "inputMode": "first-last", "reverseFrames": true, "duration": 15, "aspect": "16:9", "resolution": "720p" } },
+    { "id": "video-out", "type": "videoOutput", "position": { "x": 1400, "y": 0 }, "data": {} },
+    { "id": "frame", "type": "videoFrame", "position": { "x": 1750, "y": 0 }, "data": {} },
+    { "id": "extend", "type": "videoExtend", "position": { "x": 1750, "y": 350 }, "data": { "duration": 6 } },
+    { "id": "out", "type": "output", "position": { "x": 2100, "y": 0 }, "data": {} }
+  ],
+  "edges": [
+    { "id": "text-generate", "source": "text", "sourceHandle": "text", "target": "generate", "targetHandle": "prompt" },
+    { "id": "image-generate", "source": "image", "sourceHandle": "image", "target": "generate", "targetHandle": "image" },
+    { "id": "generate-image-out", "source": "generate", "sourceHandle": "image", "target": "image-out", "targetHandle": "image" },
+    { "id": "image-out-video", "source": "image-out", "sourceHandle": "image", "target": "video", "targetHandle": "image" },
+    { "id": "text-video", "source": "text", "sourceHandle": "text", "target": "video", "targetHandle": "prompt" },
+    { "id": "video-video-out", "source": "video", "sourceHandle": "video", "target": "video-out", "targetHandle": "video" },
+    { "id": "video-out-frame", "source": "video-out", "sourceHandle": "video", "target": "frame", "targetHandle": "video" },
+    { "id": "video-out-extend", "source": "video-out", "sourceHandle": "video", "target": "extend", "targetHandle": "video" },
+    { "id": "text-extend", "source": "text", "sourceHandle": "text", "target": "extend", "targetHandle": "prompt" },
+    { "id": "extend-out", "source": "extend", "sourceHandle": "video", "target": "out", "targetHandle": "video" },
+    { "id": "frame-out", "source": "frame", "sourceHandle": "image", "target": "out", "targetHandle": "image" }
+  ],
+  "viewport": { "x": 12, "y": 34, "zoom": 0.75 }
+}

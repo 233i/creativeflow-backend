@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    { "id": "start", "type": "start", "position": { "x": 0, "y": 150 }, "data": { "title": "外部问题", "fields": [{ "key": "question", "label": "问题", "type": "string", "required": true, "maxLength": 2000 }] } },
+    { "id": "retrieve", "type": "knowledgeRetrieve", "position": { "x": 350, "y": 150 }, "data": { "title": "固定版本知识检索", "libraryId": "10000000-0000-0000-0000-000000000001", "versionId": "10000000-0000-0000-0000-000000000002", "topK": 4, "minScore": 0.5, "fields": [{ "key": "question", "type": "string", "required": true }] } },
+    { "id": "condition", "type": "condition", "position": { "x": 700, "y": 150 }, "data": { "title": "是否检索命中", "fields": [{ "key": "context", "type": "contextChunks", "required": true }], "cases": [{ "key": "hit", "match": "all", "conditions": [{ "input": "context", "operator": "hasHits" }] }] } },
+    { "id": "answer", "type": "knowledgeAnswer", "position": { "x": 1050, "y": -100 }, "data": { "title": "基于证据回答", "fields": [{ "key": "question", "type": "string", "required": true }, { "key": "context", "type": "contextChunks", "required": true }], "modelId": "10000000-0000-0000-0000-000000000003", "systemPrompt": "用中文简洁回答，不添加资料中没有的事实。", "maxOutputTokens": 1024, "temperature": 0.2, "timeoutSeconds": 180 } },
+    { "id": "fallback", "type": "httpRequest", "position": { "x": 1050, "y": 400 }, "data": { "title": "未命中时查询合成接口", "fields": [{ "key": "question", "label": "查询问题", "type": "string", "required": true, "maxLength": 2000 }], "outputFields": [{ "key": "text", "label": "查询结果", "type": "string", "required": true }], "responseMode": "fields", "extract": { "text": "/data/result" }, "credentialId": "10000000-0000-0000-0000-000000000004", "credentialRevisionId": "10000000-0000-0000-0000-000000000005", "http": { "method": "GET", "url": "https://example.com/query", "query": [{ "name": "q", "value": "{{question}}" }], "headers": [], "bodyType": "none", "body": "", "form": [], "timeoutSeconds": 30, "responseLimitBytes": 1048576, "failOnHttpError": true } } },
+    { "id": "merge", "type": "merge", "position": { "x": 1400, "y": 150 }, "data": { "title": "合并已执行分支", "fields": [{ "key": "answer", "type": "answer", "required": false }, { "key": "fallback", "type": "string", "required": false }] } },
+    { "id": "end", "type": "end", "position": { "x": 1750, "y": 150 }, "data": { "title": "API 返回结果", "fields": [{ "key": "answer", "label": "知识答案及引用", "type": "answer", "required": false }, { "key": "fallback", "label": "外部查询结果", "type": "string", "required": false }] } }
+  ],
+  "edges": [
+    { "id": "question-retrieve", "source": "start", "sourceHandle": "question", "target": "retrieve", "targetHandle": "question" },
+    { "id": "question-answer", "source": "start", "sourceHandle": "question", "target": "answer", "targetHandle": "question" },
+    { "id": "question-http", "source": "start", "sourceHandle": "question", "target": "fallback", "targetHandle": "question" },
+    { "id": "context-condition", "source": "retrieve", "sourceHandle": "context", "target": "condition", "targetHandle": "context" },
+    { "id": "context-answer", "source": "retrieve", "sourceHandle": "context", "target": "answer", "targetHandle": "context" },
+    { "id": "hit-gate", "source": "condition", "sourceHandle": "hit", "target": "answer", "targetHandle": "$flow" },
+    { "id": "else-gate", "source": "condition", "sourceHandle": "else", "target": "fallback", "targetHandle": "$flow" },
+    { "id": "answer-merge", "source": "answer", "sourceHandle": "answer", "target": "merge", "targetHandle": "answer" },
+    { "id": "fallback-merge", "source": "fallback", "sourceHandle": "text", "target": "merge", "targetHandle": "fallback" },
+    { "id": "answer-end", "source": "merge", "sourceHandle": "answer", "target": "end", "targetHandle": "answer" },
+    { "id": "fallback-end", "source": "merge", "sourceHandle": "fallback", "target": "end", "targetHandle": "fallback" }
+  ]
+}

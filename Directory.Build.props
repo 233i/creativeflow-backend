@@ -1,0 +1,27 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!--
+    在每个类库中启用裁剪和 AOT 分析器，使违规项（Expression.Compile、反射扫描等）
+    在引发问题的层构建时以 IL2xxx/IL3xxx 形式出现，而不是在 CreativeFlow.Api 发布时才成为噪声。
+  -->
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    Dapper.AOT 将不受支持的调用点（多重映射、QueryMultiple、无类型参数）报告为信息级诊断，
+    并静默回退到反射版 Dapper，后者只会在 AOT 运行时抛错。将这些诊断提升为构建错误。
+  -->
+  <PropertyGroup>
+    <WarningsAsErrors>$(WarningsAsErrors);DAP001;DAP013;DAP015;DAP016;DAP017</WarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../CreativeFlow.Domain/CreativeFlow.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <!-- 与 Infrastructure 保持相同的显式测试可见性；不改变公开 API 或运行行为。 -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreativeFlow.UnitTests" />
+  </ItemGroup>
+
+</Project>

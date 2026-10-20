@@ -1,0 +1,779 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Same-binary MAF migration comparison; synthetic loopback providers, no paid models",
+  "environment": {
+    "system": "macOS 26.6.2 arm64",
+    "dotnetSdk": "10.0.302",
+    "node": "26.7.0",
+    "maf": "1.15.0"
+  },
+  "apiSha256": "6833d1962a70ebf2e69121fc2dd8658ed2cf447ce7de244480cad4ae3981a7e1",
+  "infrastructureSha256": "693508a98e849a21922c8fcc788d3605c0d61ce65b848eabde7668924b8bb679",
+  "legacy": {
+    "generatedAt": "2026-09-10T17:45:50.645Z",
+    "captureMode": "incremental-v2",
+    "warmupRuns": 6,
+    "measuredRuns": 180,
+    "rounds": 3,
+    "elapsedMs": 263768,
+    "peakRssKiB": 333168,
+    "summaries": [
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "count": 12,
+        "acceptMs": {
+          "count": 12,
+          "p50": 5.319,
+          "p95": 6.381,
+          "p99": 6.381,
+          "max": 6.381083000000217
+        },
+        "queueMs": {
+          "count": 12,
+          "p50": 4799,
+          "p95": 4919,
+          "p99": 4919,
+          "max": 4919
+        },
+        "dispatchMs": {
+          "count": 12,
+          "p50": 5,
+          "p95": 7,
+          "p99": 7,
+          "max": 7
+        },
+        "runtimeMs": {
+          "count": 12,
+          "p50": 7,
+          "p95": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "eventMs": {
+          "count": 24,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 2
+        }
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "count": 12,
+        "acceptMs": {
+          "count": 12,
+          "p50": 5.026,
+          "p95": 7.231,
+          "p99": 7.231,
+          "max": 7.231082999998762
+        },
+        "queueMs": {
+          "count": 12,
+          "p50": 4809,
+          "p95": 4920,
+          "p99": 4920,
+          "max": 4920
+        },
+        "dispatchMs": {
+          "count": 12,
+          "p50": 5,
+          "p95": 8,
+          "p99": 8,
+          "max": 8
+        },
+        "runtimeMs": {
+          "count": 12,
+          "p50": 32,
+          "p95": 39,
+          "p99": 39,
+          "max": 39
+        },
+        "eventMs": {
+          "count": 120,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "max": 2
+        }
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 1,
+        "count": 12,
+        "acceptMs": {
+          "count": 12,
+          "p50": 6.421,
+          "p95": 8.543,
+          "p99": 8.543,
+          "max": 8.542874999999185
+        },
+        "queueMs": {
+          "count": 12,
+          "p50": 766,
+          "p95": 932,
+          "p99": 932,
+          "max": 932
+        },
+        "dispatchMs": {
+          "count": 12,
+          "p50": 4,
+          "p95": 6,
+          "p99": 6,
+          "max": 6
+        },
+        "runtimeMs": {
+          "count": 12,
+          "p50": 27,
+          "p95": 34,
+          "p99": 34,
+          "max": 34
+        },
+        "eventMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        }
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "count": 48,
+        "acceptMs": {
+          "count": 48,
+          "p50": 4.223,
+          "p95": 4.825,
+          "p99": 5.165,
+          "max": 5.165124999999534
+        },
+        "queueMs": {
+          "count": 48,
+          "p50": 4485,
+          "p95": 4925,
+          "p99": 4925,
+          "max": 4925
+        },
+        "dispatchMs": {
+          "count": 48,
+          "p50": 7,
+          "p95": 9,
+          "p99": 10,
+          "max": 10
+        },
+        "runtimeMs": {
+          "count": 48,
+          "p50": 9,
+          "p95": 11,
+          "p99": 11,
+          "max": 11
+        },
+        "eventMs": {
+          "count": 96,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "max": 3
+        }
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "count": 48,
+        "acceptMs": {
+          "count": 48,
+          "p50": 4.109,
+          "p95": 4.62,
+          "p99": 4.871,
+          "max": 4.871041000005789
+        },
+        "queueMs": {
+          "count": 48,
+          "p50": 4819,
+          "p95": 4923,
+          "p99": 4923,
+          "max": 4923
+        },
+        "dispatchMs": {
+          "count": 48,
+          "p50": 6,
+          "p95": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "runtimeMs": {
+          "count": 48,
+          "p50": 30,
+          "p95": 33,
+          "p99": 33,
+          "max": 33
+        },
+        "eventMs": {
+          "count": 480,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "max": 2
+        }
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "count": 48,
+        "acceptMs": {
+          "count": 48,
+          "p50": 5.775,
+          "p95": 7.011,
+          "p99": 7.384,
+          "max": 7.38399999999092
+        },
+        "queueMs": {
+          "count": 48,
+          "p50": 632,
+          "p95": 942,
+          "p99": 942,
+          "max": 942
+        },
+        "dispatchMs": {
+          "count": 48,
+          "p50": 5,
+          "p95": 7,
+          "p99": 7,
+          "max": 7
+        },
+        "runtimeMs": {
+          "count": 48,
+          "p50": 25,
+          "p95": 32,
+          "p99": 33,
+          "max": 33
+        },
+        "eventMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        }
+      }
+    ]
+  },
+  "maf": {
+    "generatedAt": "2026-09-10T17:50:15.219Z",
+    "captureMode": "incremental-v2",
+    "warmupRuns": 6,
+    "measuredRuns": 180,
+    "rounds": 3,
+    "elapsedMs": 263626,
+    "peakRssKiB": 344048,
+    "summaries": [
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "count": 12,
+        "acceptMs": {
+          "count": 12,
+          "p50": 4.895,
+          "p95": 6.08,
+          "p99": 6.08,
+          "max": 6.079708000004757
+        },
+        "queueMs": {
+          "count": 12,
+          "p50": 4725,
+          "p95": 4932,
+          "p99": 4932,
+          "max": 4932
+        },
+        "dispatchMs": {
+          "count": 12,
+          "p50": 6,
+          "p95": 7,
+          "p99": 7,
+          "max": 7
+        },
+        "runtimeMs": {
+          "count": 12,
+          "p50": 7,
+          "p95": 9,
+          "p99": 9,
+          "max": 9
+        },
+        "eventMs": {
+          "count": 24,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 2
+        }
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "count": 12,
+        "acceptMs": {
+          "count": 12,
+          "p50": 4.378,
+          "p95": 5.948,
+          "p99": 5.948,
+          "max": 5.948457999998936
+        },
+        "queueMs": {
+          "count": 12,
+          "p50": 4823,
+          "p95": 4927,
+          "p99": 4927,
+          "max": 4927
+        },
+        "dispatchMs": {
+          "count": 12,
+          "p50": 6,
+          "p95": 8,
+          "p99": 8,
+          "max": 8
+        },
+        "runtimeMs": {
+          "count": 12,
+          "p50": 33,
+          "p95": 37,
+          "p99": 37,
+          "max": 37
+        },
+        "eventMs": {
+          "count": 120,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "max": 1
+        }
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 1,
+        "count": 12,
+        "acceptMs": {
+          "count": 12,
+          "p50": 7.068,
+          "p95": 7.833,
+          "p99": 7.833,
+          "max": 7.833417000001646
+        },
+        "queueMs": {
+          "count": 12,
+          "p50": 515,
+          "p95": 914,
+          "p99": 914,
+          "max": 914
+        },
+        "dispatchMs": {
+          "count": 12,
+          "p50": 4,
+          "p95": 7,
+          "p99": 7,
+          "max": 7
+        },
+        "runtimeMs": {
+          "count": 12,
+          "p50": 29,
+          "p95": 31,
+          "p99": 31,
+          "max": 31
+        },
+        "eventMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        }
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "count": 48,
+        "acceptMs": {
+          "count": 48,
+          "p50": 4.374,
+          "p95": 6.112,
+          "p99": 6.273,
+          "max": 6.273457999981474
+        },
+        "queueMs": {
+          "count": 48,
+          "p50": 4821,
+          "p95": 4940,
+          "p99": 4940,
+          "max": 4940
+        },
+        "dispatchMs": {
+          "count": 48,
+          "p50": 7,
+          "p95": 17,
+          "p99": 17,
+          "max": 17
+        },
+        "runtimeMs": {
+          "count": 48,
+          "p50": 8,
+          "p95": 18,
+          "p99": 18,
+          "max": 18
+        },
+        "eventMs": {
+          "count": 96,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "max": 3
+        }
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "count": 48,
+        "acceptMs": {
+          "count": 48,
+          "p50": 4.006,
+          "p95": 4.968,
+          "p99": 5.031,
+          "max": 5.030790999997407
+        },
+        "queueMs": {
+          "count": 48,
+          "p50": 4800,
+          "p95": 4955,
+          "p99": 4956,
+          "max": 4956
+        },
+        "dispatchMs": {
+          "count": 48,
+          "p50": 6,
+          "p95": 8,
+          "p99": 9,
+          "max": 9
+        },
+        "runtimeMs": {
+          "count": 48,
+          "p50": 30,
+          "p95": 36,
+          "p99": 36,
+          "max": 36
+        },
+        "eventMs": {
+          "count": 480,
+          "p50": 1,
+          "p95": 1,
+          "p99": 2,
+          "max": 2
+        }
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "count": 48,
+        "acceptMs": {
+          "count": 48,
+          "p50": 6.083,
+          "p95": 7.355,
+          "p99": 8.661,
+          "max": 8.661458000002312
+        },
+        "queueMs": {
+          "count": 48,
+          "p50": 727,
+          "p95": 967,
+          "p99": 967,
+          "max": 967
+        },
+        "dispatchMs": {
+          "count": 48,
+          "p50": 3,
+          "p95": 6,
+          "p99": 6,
+          "max": 6
+        },
+        "runtimeMs": {
+          "count": 48,
+          "p50": 26,
+          "p95": 31,
+          "p99": 33,
+          "max": 33
+        },
+        "eventMs": {
+          "count": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "max": null
+        }
+      }
+    ]
+  },
+  "comparison": {
+    "generatedAt": "2026-09-10T17:50:15.252Z",
+    "passed": true,
+    "results": [
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "metric": "acceptMs",
+        "legacy": 6.381,
+        "maf": 6.08,
+        "limit": 16.381,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "metric": "queueMs",
+        "legacy": 4919,
+        "maf": 4932,
+        "limit": 5419,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "metric": "dispatchMs",
+        "legacy": 7,
+        "maf": 7,
+        "limit": 17,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "metric": "runtimeMs",
+        "legacy": 9,
+        "maf": 9,
+        "limit": 29,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 1,
+        "metric": "eventMs",
+        "legacy": 1,
+        "maf": 1,
+        "limit": 11,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "metric": "acceptMs",
+        "legacy": 7.231,
+        "maf": 5.948,
+        "limit": 17.231,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "metric": "queueMs",
+        "legacy": 4920,
+        "maf": 4927,
+        "limit": 5420,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "metric": "dispatchMs",
+        "legacy": 8,
+        "maf": 8,
+        "limit": 18,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "metric": "runtimeMs",
+        "legacy": 39,
+        "maf": 37,
+        "limit": 59,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 1,
+        "metric": "eventMs",
+        "legacy": 1,
+        "maf": 1,
+        "limit": 11,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 1,
+        "metric": "acceptMs",
+        "legacy": 8.543,
+        "maf": 7.833,
+        "limit": 18.543,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 1,
+        "metric": "queueMs",
+        "legacy": 932,
+        "maf": 914,
+        "limit": 1432,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 1,
+        "metric": "dispatchMs",
+        "legacy": 6,
+        "maf": 7,
+        "limit": 16,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 1,
+        "metric": "runtimeMs",
+        "legacy": 34,
+        "maf": 31,
+        "limit": 54,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "metric": "acceptMs",
+        "legacy": 4.825,
+        "maf": 6.112,
+        "limit": 14.825,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "metric": "queueMs",
+        "legacy": 4925,
+        "maf": 4940,
+        "limit": 5425,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "metric": "dispatchMs",
+        "legacy": 9,
+        "maf": 17,
+        "limit": 19,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "metric": "runtimeMs",
+        "legacy": 11,
+        "maf": 18,
+        "limit": 31,
+        "passed": true
+      },
+      {
+        "profile": "agent-text",
+        "concurrency": 4,
+        "metric": "eventMs",
+        "legacy": 2,
+        "maf": 2,
+        "limit": 12,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "metric": "acceptMs",
+        "legacy": 4.62,
+        "maf": 4.968,
+        "limit": 14.620000000000001,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "metric": "queueMs",
+        "legacy": 4923,
+        "maf": 4955,
+        "limit": 5423,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "metric": "dispatchMs",
+        "legacy": 9,
+        "maf": 8,
+        "limit": 19,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "metric": "runtimeMs",
+        "legacy": 33,
+        "maf": 36,
+        "limit": 53,
+        "passed": true
+      },
+      {
+        "profile": "agent-two-tools-three-model-rounds",
+        "concurrency": 4,
+        "metric": "eventMs",
+        "legacy": 1,
+        "maf": 1,
+        "limit": 11,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "acceptMs",
+        "legacy": 7.011,
+        "maf": 7.355,
+        "limit": 17.011,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "queueMs",
+        "legacy": 942,
+        "maf": 967,
+        "limit": 1442,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "dispatchMs",
+        "legacy": 7,
+        "maf": 6,
+        "limit": 17,
+        "passed": true
+      },
+      {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "runtimeMs",
+        "legacy": 32,
+        "maf": 31,
+        "limit": 52,
+        "passed": true
+      },
+      {
+        "metric": "peakRssKiB",
+        "legacy": 333168,
+        "maf": 344048,
+        "limit": 449228,
+        "passed": true
+      }
+    ]
+  }
+}

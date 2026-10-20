@@ -1,0 +1,47 @@
+[Unit]
+Description=CreativeFlow Qdrant vector storage (loopback only)
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Container]
+# Official v1.19.1 image, pinned by digest rather than a mutable tag.
+Image=docker.io/qdrant/qdrant@sha256:0699e7733a6fa7fa7f6b95dcbed84ebb04584110da525cdfdef9f305c4f57738
+ContainerName=creativeflow-qdrant
+Pull=never
+Network=host
+User=1000
+Group=1000
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=all
+Volume=/opt/creativeflow/qdrant/storage:/qdrant/storage:Z
+Volume=/opt/creativeflow/qdrant/snapshots:/qdrant/snapshots:Z
+Volume=/opt/creativeflow/deploy/qdrant/production.yaml:/qdrant/config/production.yaml:ro,Z
+Volume=/opt/creativeflow/deploy/qdrant/healthcheck.sh:/usr/local/bin/creativeflow-qdrant-healthcheck:ro,Z
+Secret=creativeflow-qdrant-api-key,type=env,target=QDRANT__SERVICE__API_KEY
+Secret=creativeflow-qdrant-read-key,type=env,target=QDRANT__SERVICE__READ_ONLY_API_KEY
+Environment=QDRANT_INIT_FILE_PATH=/qdrant/storage/.qdrant-initialized
+Entrypoint=/qdrant/qdrant
+Exec=--config-path /qdrant/config/production.yaml --disable-telemetry
+Memory=1g
+PodmanArgs=--cpus=1 --memory-swap=1g --pids-limit=128
+LogDriver=k8s-file
+LogOpt=max-size=10mb
+HealthCmd=/bin/bash /usr/local/bin/creativeflow-qdrant-healthcheck
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=15s
+HealthOnFailure=kill
+Notify=healthy
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=90s
+TimeoutStopSec=60s
+
+[Install]
+WantedBy=multi-user.target

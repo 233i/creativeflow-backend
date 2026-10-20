@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "candidate": "maf-only",
+  "generatedAt": "2026-09-11T04:28:41.190Z",
+  "apiSha256": "a8e1bf2c8d3674ec543f778a5240bef19922832704827bf9ab2211212204b809",
+  "protocolCalls": "All recorded model and tool counts match the frozen workload",
+  "policy": "Unchanged v1 thresholds; retain initial failure and two predetermined independent repeats",
+  "trials": [
+    {
+      "trial": "initial",
+      "passed": false,
+      "checks": 29,
+      "failures": [
+        {
+          "profile": "workflow-20-nodes",
+          "concurrency": 4,
+          "metric": "dispatchMs",
+          "legacy": 8,
+          "maf": 24,
+          "limit": 18,
+          "passed": false
+        }
+      ],
+      "reference": {
+        "measured": 180,
+        "warmup": 6,
+        "elapsedMs": 262810,
+        "peakRssKiB": 337888
+      },
+      "candidate": {
+        "measured": 180,
+        "warmup": 6,
+        "elapsedMs": 264019,
+        "peakRssKiB": 346560
+      },
+      "workflowConcurrentDispatch": {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "dispatchMs",
+        "legacy": 8,
+        "maf": 24,
+        "limit": 18,
+        "passed": false
+      }
+    },
+    {
+      "trial": "-repeat-1",
+      "passed": true,
+      "checks": 29,
+      "failures": [],
+      "reference": {
+        "measured": 180,
+        "warmup": 6,
+        "elapsedMs": 263735,
+        "peakRssKiB": 337376
+      },
+      "candidate": {
+        "measured": 180,
+        "warmup": 6,
+        "elapsedMs": 263952,
+        "peakRssKiB": 347712
+      },
+      "workflowConcurrentDispatch": {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "dispatchMs",
+        "legacy": 9,
+        "maf": 6,
+        "limit": 19,
+        "passed": true
+      }
+    },
+    {
+      "trial": "-repeat-2",
+      "passed": true,
+      "checks": 29,
+      "failures": [],
+      "reference": {
+        "measured": 180,
+        "warmup": 6,
+        "elapsedMs": 263527,
+        "peakRssKiB": 338528
+      },
+      "candidate": {
+        "measured": 180,
+        "warmup": 6,
+        "elapsedMs": 263522,
+        "peakRssKiB": 348448
+      },
+      "workflowConcurrentDispatch": {
+        "profile": "workflow-20-nodes",
+        "concurrency": 4,
+        "metric": "dispatchMs",
+        "legacy": 9,
+        "maf": 6,
+        "limit": 19,
+        "passed": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "format": "creativeflow-workflow",
+  "formatVersion": 1,
+  "schemaVersion": 1,
+  "name": "Startup acceptance — echo (no model calls)",
+  "graph": {
+    "schemaVersion": 1,
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": { "x": 0, "y": 120 },
+        "data": {
+          "title": "Start",
+          "fields": [
+            { "key": "message", "label": "Message", "type": "string", "required": true, "maxLength": 2000 }
+          ]
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": { "x": 400, "y": 120 },
+        "data": {
+          "title": "End",
+          "fields": [
+            { "key": "result", "label": "Result", "type": "string", "required": true }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      { "id": "message-result", "source": "start", "sourceHandle": "message", "target": "end", "targetHandle": "result" }
+    ]
+  }
+}

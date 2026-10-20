@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-11T04:57:24.037Z",
+  "engine": "maf-only",
+  "apiSha256": "a8e1bf2c8d3674ec543f778a5240bef19922832704827bf9ab2211212204b809",
+  "passed": true,
+  "warmup": 102,
+  "measured": 1080,
+  "rounds": 18,
+  "elapsedMs": 1814234,
+  "peakRssKiB": 373520,
+  "memorySamples": 362,
+  "lastThird": {
+    "firstRssKiB": 365440,
+    "lastRssKiB": 373248,
+    "growthKiB": 7808
+  },
+  "expectedModelCalls": 1440,
+  "expectedToolCalls": 1440,
+  "extraCalls": 0,
+  "databaseStatesIncludingWarmup": [
+    {
+      "kind": "agent",
+      "status": "succeeded",
+      "count": 788
+    },
+    {
+      "kind": "workflow",
+      "status": "succeeded",
+      "count": 394
+    },
+    {
+      "kind": "node",
+      "status": "succeeded",
+      "count": 7880
+    }
+  ]
+}

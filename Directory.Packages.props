@@ -1,0 +1,87 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="Data access">
+    <PackageVersion Include="Dapper" Version="2.1.79" />
+    <PackageVersion Include="Dapper.AOT" Version="1.0.52" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.DependencyInjection" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="Infrastructure">
+    <PackageVersion Include="StackExchange.Redis" Version="3.0.25" />
+    <PackageVersion Include="RabbitMQ.Client" Version="7.2.1" />
+    <PackageVersion Include="Alibaba.OpenSandbox" Version="0.1.5" />
+  </ItemGroup>
+
+  <ItemGroup Label="Web / realtime">
+    <!-- 让框架包保持在相同的 .NET 10 服务补丁版本。 -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.10" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="Validation and options">
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup Label="Extensions abstractions">
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <!-- IHttpClientFactory，用于调用上游 AI 供应商。 -->
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup Label="Observability">
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+  </ItemGroup>
+
+  <!--
+    传递依赖固定。Microsoft.AspNetCore.OpenApi 10 使用 Microsoft.OpenApi 2.x API。
+    CVE-2026-49451（循环 $ref 导致不受控递归，GHSA-v5pm-xwqc-g5wc）影响至 2.7.4 版本，
+    已在 2.7.5 中修复。
+  -->
+  <ItemGroup Label="Security overrides">
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+    <!--
+      SignalR 的 Redis 背板会引入 MessagePack 2.5.187，其 LZ4 解压路径存在越界读取问题
+      （CVE / GHSA-hv8m-jj95-wg3x，另有数个中等严重性通告）。
+      该问题在 2.5.301 中修复。SignalR 10.0.10 要求 2.5.302，仍属于兼容的 v2 系列。
+    -->
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit.v3" Version="3.1.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.0" />
+  </ItemGroup>
+
+  <!-- MAF 运行时和独立 SDK 回归共用固定版本；升级须通过迁移兼容门禁。 -->
+  <ItemGroup Label="MAF runtime">
+    <PackageVersion Include="Microsoft.Agents.AI" Version="1.15.0" />
+    <PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.15.0" />
+  </ItemGroup>
+
+  <!-- AG-UI wire protocol and the official SSE formatter for workflow streaming. -->
+  <ItemGroup Label="AG-UI protocol">
+    <PackageVersion Include="AGUI.Abstractions" Version="1.0.0" />
+    <PackageVersion Include="AGUI.Formatting" Version="1.0.0" />
+  </ItemGroup>
+
+</Project>

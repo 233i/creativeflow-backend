@@ -1,0 +1,58 @@
+# Single-node deployment for the shared 2-vCPU / 4-GB CreativeFlow server.
+# Credentials are injected by Podman secrets, never stored in this file.
+log_level: INFO
+telemetry_disabled: true
+
+service:
+  host: 127.0.0.1
+  http_port: 6333
+  grpc_port: null
+  max_workers: 1
+  max_request_size_mb: 8
+  enable_cors: false
+  # The endpoint is restricted to host loopback; remote use requires SSH/TLS.
+  enable_tls: false
+  enable_snapshot_url_recovery: false
+
+cluster:
+  enabled: false
+
+storage:
+  storage_path: /qdrant/storage
+  snapshots_path: /qdrant/snapshots
+  payload:
+    memory: cold
+  update_concurrency: 1
+  performance:
+    max_search_threads: 1
+    optimizer_cpu_budget: 1
+  optimizers:
+    default_segment_number: 1
+    max_segment_size_kb: 50000
+    max_optimization_threads: 1
+  optimizers_overwrite:
+    max_segment_size_kb: 50000
+    max_optimization_threads: 1
+  hnsw_index:
+    max_indexing_threads: 1
+    memory: cold
+  collection:
+    replication_factor: 1
+    write_consistency_factor: 1
+    shard_number_per_node: 1
+    vectors:
+      memory: cold
+    strict_mode:
+      enabled: true
+      max_query_limit: 100
+      max_timeout: 15
+      unindexed_filtering_retrieve: false
+      unindexed_filtering_update: false
+  max_collections: 10
+  # These defaults seed storage/quota.json only on the first start.
+  # Later changes must use the authenticated /quotas API and be verified.
+  quotas:
+    enabled: true
+    max_resident_memory_percent: 75
+    max_disk_usage_percent: 80
+    release_margin_percent: 5

@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Synthetic MAF endurance observation; no paid model calls or production data",
+  "environment": {
+    "system": "macOS 26.6.2 arm64",
+    "dotnetSdk": "10.0.302",
+    "node": "26.7.0",
+    "maf": "1.15.0"
+  },
+  "apiSha256": "6833d1962a70ebf2e69121fc2dd8658ed2cf447ce7de244480cad4ae3981a7e1",
+  "infrastructureSha256": "693508a98e849a21922c8fcc788d3605c0d61ce65b848eabde7668924b8bb679",
+  "generatedAt": "2026-09-10T18:20:30.908Z",
+  "captureMode": "incremental-v2",
+  "engines": {
+    "agent": "Maf",
+    "workflow": "Maf"
+  },
+  "warmupRuns": 102,
+  "measuredRuns": 1080,
+  "rounds": 18,
+  "elapsedMs": 1814709,
+  "peakRssKiB": 368144,
+  "memorySampleCount": 362,
+  "memoryThirds": [
+    {
+      "samples": 120,
+      "firstKiB": 154400,
+      "lastKiB": 347632,
+      "minKiB": 154400,
+      "maxKiB": 347632,
+      "medianKiB": 302304
+    },
+    {
+      "samples": 120,
+      "firstKiB": 347872,
+      "lastKiB": 362864,
+      "minKiB": 347872,
+      "maxKiB": 363408,
+      "medianKiB": 356928
+    },
+    {
+      "samples": 122,
+      "firstKiB": 362928,
+      "lastKiB": 367664,
+      "minKiB": 362928,
+      "maxKiB": 367792,
+      "medianKiB": 366736
+    }
+  ],
+  "measuredModelCalls": 1440,
+  "measuredToolCalls": 1440,
+  "extraModelCalls": 0,
+  "extraToolCalls": 0,
+  "finalDatabaseStatusIncludingWarmups": {
+    "agent": {
+      "succeeded": 788
+    },
+    "workflow": {
+      "succeeded": 394
+    }
+  },
+  "summaries": [
+    {
+      "profile": "agent-text",
+      "concurrency": 1,
+      "count": 72,
+      "acceptMs": {
+        "count": 72,
+        "p50": 5.145,
+        "p95": 6.364,
+        "p99": 7.958,
+        "max": 7.958332999842241
+      },
+      "queueMs": {
+        "count": 72,
+        "p50": 4710,
+        "p95": 4943,
+        "p99": 4981,
+        "max": 4981
+      },
+      "dispatchMs": {
+        "count": 72,
+        "p50": 5,
+        "p95": 8,
+        "p99": 10,
+        "max": 10
+      },
+      "runtimeMs": {
+        "count": 72,
+        "p50": 7,
+        "p95": 9,
+        "p99": 12,
+        "max": 12
+      },
+      "eventMs": {
+        "count": 144,
+        "p50": 1,
+        "p95": 1,
+        "p99": 2,
+        "max": 2
+      }
+    },
+    {
+      "profile": "agent-two-tools-three-model-rounds",
+      "concurrency": 1,
+      "count": 72,
+      "acceptMs": {
+        "count": 72,
+        "p50": 5.074,
+        "p95": 6.155,
+        "p99": 7.526,
+        "max": 7.5260409999173135
+      },
+      "queueMs": {
+        "count": 72,
+        "p50": 4795,
+        "p95": 4942,
+        "p99": 4979,
+        "max": 4979
+      },
+      "dispatchMs": {
+        "count": 72,
+        "p50": 6,
+        "p95": 7,
+        "p99": 7,
+        "max": 7
+      },
+      "runtimeMs": {
+        "count": 72,
+        "p50": 32,
+        "p95": 35,
+        "p99": 38,
+        "max": 38
+      },
+      "eventMs": {
+        "count": 720,
+        "p50": 1,
+        "p95": 1,
+        "p99": 1,
+        "max": 4
+      }
+    },
+    {
+      "profile": "workflow-20-nodes",
+      "concurrency": 1,
+      "count": 72,
+      "acceptMs": {
+        "count": 72,
+        "p50": 6.718,
+        "p95": 9.085,
+        "p99": 9.594,
+        "max": 9.594458000035957
+      },
+      "queueMs": {
+        "count": 72,
+        "p50": 751,
+        "p95": 937,
+        "p99": 982,
+        "max": 982
+      },
+      "dispatchMs": {
+        "count": 72,
+        "p50": 5,
+        "p95": 6,
+        "p99": 9,
+        "max": 9
+      },
+      "runtimeMs": {
+        "count": 72,
+        "p50": 30,
+        "p95": 33,
+        "p99": 34,
+        "max": 34
+      },
+      "eventMs": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    },
+    {
+      "profile": "agent-text",
+      "concurrency": 4,
+      "count": 288,
+      "acceptMs": {
+        "count": 288,
+        "p50": 4.179,
+        "p95": 5.063,
+        "p99": 7.215,
+        "max": 7.451416999800131
+      },
+      "queueMs": {
+        "count": 288,
+        "p50": 4693,
+        "p95": 4928,
+        "p99": 4978,
+        "max": 4979
+      },
+      "dispatchMs": {
+        "count": 288,
+        "p50": 6,
+        "p95": 8,
+        "p99": 10,
+        "max": 10
+      },
+      "runtimeMs": {
+        "count": 288,
+        "p50": 8,
+        "p95": 10,
+        "p99": 11,
+        "max": 11
+      },
+      "eventMs": {
+        "count": 576,
+        "p50": 1,
+        "p95": 2,
+        "p99": 2,
+        "max": 6
+      }
+    },
+    {
+      "profile": "agent-two-tools-three-model-rounds",
+      "concurrency": 4,
+      "count": 288,
+      "acceptMs": {
+        "count": 288,
+        "p50": 3.787,
+        "p95": 4.757,
+        "p99": 5.274,
+        "max": 5.610332999960519
+      },
+      "queueMs": {
+        "count": 288,
+        "p50": 4777,
+        "p95": 4928,
+        "p99": 4933,
+        "max": 4933
+      },
+      "dispatchMs": {
+        "count": 288,
+        "p50": 6,
+        "p95": 9,
+        "p99": 11,
+        "max": 11
+      },
+      "runtimeMs": {
+        "count": 288,
+        "p50": 29,
+        "p95": 32,
+        "p99": 36,
+        "max": 36
+      },
+      "eventMs": {
+        "count": 2880,
+        "p50": 0,
+        "p95": 1,
+        "p99": 2,
+        "max": 4
+      }
+    },
+    {
+      "profile": "workflow-20-nodes",
+      "concurrency": 4,
+      "count": 288,
+      "acceptMs": {
+        "count": 288,
+        "p50": 6.341,
+        "p95": 7.566,
+        "p99": 7.96,
+        "max": 8.72295800014399
+      },
+      "queueMs": {
+        "count": 288,
+        "p50": 727,
+        "p95": 965,
+        "p99": 991,
+        "max": 991
+      },
+      "dispatchMs": {
+        "count": 288,
+        "p50": 4,
+        "p95": 7,
+        "p99": 8,
+        "max": 8
+      },
+      "runtimeMs": {
+        "count": 288,
+        "p50": 30,
+        "p95": 33,
+        "p99": 35,
+        "max": 36
+      },
+      "eventMs": {
+        "count": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "max": null
+      }
+    }
+  ],
+  "limitations": [
+    "RSS is sampled process memory, not a managed heap leak proof.",
+    "Relative performance gates use the separate same-lifetime Legacy/MAF microbenchmark.",
+    "Loopback synthetic providers do not establish production capacity or real model quality."
+  ]
+}

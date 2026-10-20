@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- 源生成的 libc 目录 fsync 绑定；无需运行时反射，兼容 AOT。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- 锁定 MAF 及其全部传递依赖；升级须重新运行迁移兼容门禁。 -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!--
+      Dapper.AOT 会生成 C# 拦截器，而拦截器只在其所属编译单元中生效，
+      不会跨越 ProjectReference。因此解决方案中的所有 Dapper 调用都必须位于此项目中，
+      且只有此项目启用拦截器命名空间。
+    -->
+    <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Dapper.AOT</InterceptorsPreviewNamespaces>
+    <!-- Dapper.AOT 仍会生成旧版 [InterceptsLocation(string,int,int)] 形式。 -->
+    <NoWarn>$(NoWarn);CS9270</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../CreativeFlow.Application/CreativeFlow.Application.csproj" />
+  </ItemGroup>
+
+  <!--
+    AI 客户端和密钥保护器被刻意设为内部类型，它们是应用层端口背后的实现细节。
+    测试直接验证其行为，而不扩大公共接口。
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreativeFlow.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Dapper.AOT" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Npgsql.DependencyInjection" />
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="Alibaba.OpenSandbox" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" />
+  </ItemGroup>
+
+  <!-- 嵌入迁移，使单个 AOT 二进制文件携带自身架构。 -->
+  <ItemGroup>
+    <EmbeddedResource Include="../../db/migrations/*.sql" LogicalName="CreativeFlow.Migrations.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

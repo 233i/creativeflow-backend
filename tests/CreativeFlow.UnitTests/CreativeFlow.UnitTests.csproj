@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+
+    <!--
+      Directory.Build.props 为每个项目启用裁剪和 AOT 分析器。测试绝不会发布为原生二进制文件，
+      且 xunit 通过反射发现测试，因此保持启用只会报告无法处理的违规项。
+    -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/CreativeFlow.Api/CreativeFlow.Api.csproj" />
+    <ProjectReference Include="../../src/CreativeFlow.Domain/CreativeFlow.Domain.csproj" />
+    <ProjectReference Include="../../src/CreativeFlow.Infrastructure/CreativeFlow.Infrastructure.csproj" />
+    <ProjectReference Include="../../tools/CreativeFlow.CodeQuality/CreativeFlow.CodeQuality.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <!-- 整个解决方案均启用了 ImplicitUsings，因此 Xunit 加入同一集合。 -->
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <EmbeddedResource Include="../../docs/examples/*.workflow.json" LogicalName="CreativeFlow.TestExamples.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

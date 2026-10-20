@@ -1,0 +1,93 @@
+using CreativeFlow.Application.Abstractions.Ai;
+using CreativeFlow.Application.Abstractions.Persistence;
+using CreativeFlow.Application.Features.Workflow;
+using CreativeFlow.Domain.Ai;
+using static CreativeFlow.Infrastructure.Ai.Workflows.WorkflowMediaInputs;
+
+namespace CreativeFlow.Infrastructure.Ai.Workflows;
+
+/// <summary>执行媒体图片生成，保留原模型角色、参考图顺序、取消检查与素材保存规则。</summary>
+internal sealed class ImageGenerationNodeExecutor(
+    WorkflowMediaModelResolver models,
+    WorkflowMediaAssetReader media,
+    IImageGenerationSettingsRepository generationSettings,
+    IImageGenerationDispatcher dispatcher,
+    IAssetStore assetStore,
+    ICanvasAssetRepository assets,
+    IWorkflowRunRepository runs,
+    IImageOutputDownloader downloader) : IWorkflowNodeExecutor
+{
+    /// <summary>执行工作流图片生成节点并保存生成素材。</summary>
+    public async Task<WorkflowNodeValue> ExecuteAsync(WorkflowNodeExecutionContext context, CancellationToken ct)
+    {
+        var run = context.Run;
+        var node = context.Node;
+        var values = context.Values;
+        // 当前工作流图片节点不传蒙版；生成成功后仍需检查运行是否已取消，再保存输出素材。
+        var input = GatherInputs(node, values);
+        var managed = await models.ResolveAsync(
+            "image",
+            ModelCategory.Image,
+            ct,
+            ReadString(node.Data, "providerId"),
+            ReadString(node.Data, "modelId"));
+        var references = await media.LoadReferencesAsync(run, input.Images, 8, ct);
+        var settings = await generationSettings
+            .GetAsync(ct);
+        var count = Math.Clamp(ReadInt(node.Data, "count") ?? 1, 1, 4);
+        var aspect = ReadString(node.Data, "aspect");
+
+        var result = await dispatcher.GenerateAsync(
+            managed.Provider.ResolveProtocol(managed.Model),
+            new ImageGenerationRequest(
+                managed.Provider,
+                managed.ApiKey,
+                managed.Model.ModelKey,
+                string.Join("\n", input.Texts),
+                references,
+                null,
+                SizeFor(aspect),
+                NullIfEmpty(ReadString(node.Data, "quality")),
+                NullIfEmpty(ReadString(node.Data, "outputFormat")),
+                settings.ResponseFormat,
+                count,
+                ReadInt(node.Data, "seed"), DeferDownloads: true),
+            ct);
+
+        if (!result.Ok)
+        {
+            throw new WorkflowExecutionException(result.Error ?? "Image generation failed.");
+        }
+
+        if (await runs
+            .IsCancellationRequestedAsync(run.Id, ct))
+        {
+            throw new WorkflowCancelledException();
+        }
+
+        var urls = new List<string>(result.Images.Count);
+        foreach (var image in result.Images)
+        {
+            var saved = image.DownloadUrl is { } downloadUrl && image.Bytes.Length == 0
+                ? await downloader.DownloadAsync(downloadUrl, managed.Provider.BaseUrl, managed.ApiKey, image.MediaType, ct)
+                : await assetStore.SaveAsync(image.Bytes, image.MediaType, ExtensionFor(image.MediaType), ct);
+            var assetId = Guid.CreateVersion7();
+            await assets.InsertAsync(
+                new CanvasAsset(
+                    assetId,
+                    run.DeviceId,
+                    "image",
+                    saved.MediaType,
+                    saved.StoragePath,
+                    saved.ByteSize,
+                    string.Join("\n", input.Texts),
+                    DateTimeOffset.UtcNow,
+                    SourceUrl: image.SourceUrl,
+                    SourceUrlExpiresAt: image.SourceUrlExpiresAt),
+                ct);
+            urls.Add($"/api/v1/canvas/assets/{assetId}");
+        }
+
+        return new WorkflowNodeValue([], urls, []);
+    }
+}

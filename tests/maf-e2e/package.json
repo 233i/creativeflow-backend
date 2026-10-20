@@ -1,0 +1,8 @@
+{
+  "name": "creativeflow-maf-tests",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@microsoft/signalr": "10.0.0"
+  }
+}

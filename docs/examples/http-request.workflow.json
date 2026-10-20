@@ -1,0 +1,111 @@
+{
+  "format": "creativeflow-workflow",
+  "formatVersion": 1,
+  "schemaVersion": 1,
+  "name": "HTTP 请求示例（需替换接口地址）",
+  "graph": {
+    "schemaVersion": 1,
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": {
+          "x": 0,
+          "y": 100
+        },
+        "data": {
+          "fields": [
+            {
+              "key": "question",
+              "label": "查询内容",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "http",
+        "type": "httpRequest",
+        "position": {
+          "x": 370,
+          "y": 100
+        },
+        "data": {
+          "fields": [
+            {
+              "key": "question",
+              "label": "查询内容",
+              "type": "string",
+              "required": true
+            }
+          ],
+          "http": {
+            "method": "POST",
+            "url": "https://example.com/api/query",
+            "query": [],
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "bodyType": "json",
+            "body": "{\"query\":\"{{question}}\"}",
+            "form": [],
+            "timeoutSeconds": 30,
+            "responseLimitBytes": 16384,
+            "failOnHttpError": true
+          },
+          "outputFields": [
+            {
+              "key": "result",
+              "label": "查询结果",
+              "type": "string",
+              "required": true
+            }
+          ],
+          "extract": {
+            "result": "/data/result"
+          },
+          "credentialId": "",
+          "credentialRevisionId": ""
+        }
+      },
+      {
+        "id": "end",
+        "type": "end",
+        "position": {
+          "x": 740,
+          "y": 100
+        },
+        "data": {
+          "fields": [
+            {
+              "key": "answer",
+              "label": "回答",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "question",
+        "source": "start",
+        "sourceHandle": "question",
+        "target": "http",
+        "targetHandle": "question"
+      },
+      {
+        "id": "answer",
+        "source": "http",
+        "sourceHandle": "result",
+        "target": "end",
+        "targetHandle": "answer"
+      }
+    ]
+  }
+}

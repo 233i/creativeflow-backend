@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    领域层没有任何外部依赖，不使用 NuGet 包，也不包含项目引用。
+    共享属性（TFM、可空性、IsAotCompatible）来自 Directory.Build.props。
+  -->
+
+</Project>

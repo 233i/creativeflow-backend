@@ -1,0 +1,38 @@
+## .NET
+node_modules/
+bin/
+obj/
+generated/
+*.user
+*.suo
+publish/
+artifacts/
+
+## Test output (Playwright/vitest run-state, not source)
+test-results/
+.playwright-cli/
+output/playwright/
+
+## Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/
+.claude/worktrees/
+
+## macOS
+.DS_Store
+Library/
+
+## Runtime storage — assets, uploads, generated files and local runner state
+/storage/
+/src/CreativeFlow.Api/storage/
+/runner/storage/
+
+## Secrets — the device fingerprint pepper and connection strings must never be committed
+*.env
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+secrets.json
+opensandbox/config.local.toml

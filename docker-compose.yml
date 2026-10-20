@@ -1,0 +1,147 @@
+# 本地独立开发栈。生产部署请使用经过审查的密钥和持久化配置。
+name: creativeflow
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: creativeflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: creativeflow
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    # postgres:18+ 要求只挂载 /var/lib/postgresql（数据会写入其子目录），
+    # 以便 pg_upgrade --link 在不跨越挂载边界的情况下工作。
+    volumes:
+      - creativeflow-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U creativeflow -d creativeflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # 只向本机提供开发端口；容器之间使用内部服务名和标准端口。
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
+    volumes:
+      - creativeflow-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    # RabbitMQ 的数据目录包含节点名；重建容器时保持名称稳定。
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: creativeflow
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5673}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15673}:15672"
+    volumes:
+      - creativeflow-rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      # 避免首次启动的健康探针以 root 抢先创建 .erlang.cookie。
+      test: ["CMD", "su-exec", "rabbitmq", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # 官方 OpenSandbox 控制平面。它拥有 Docker 访问权限，并为每次获批的 Skill 执行
+  # 创建隔离的短生命周期容器。
+  opensandbox:
+    profiles: ["sandbox"]
+    image: opensandbox/server:latest
+    ports:
+      - "127.0.0.1:${OPENSANDBOX_PORT:-8090}:8090"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - creativeflow-opensandbox-data:/root/.opensandbox
+      - ./opensandbox/config.local.toml:/etc/opensandbox/config.toml:ro
+    environment:
+      SANDBOX_CONFIG_PATH: /etc/opensandbox/config.toml
+      OPENSANDBOX_SERVER_API_KEY: ${OPENSANDBOX_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # CreativeFlow.Api 的 JIT 自包含构建（SDK/工具链说明见 src/CreativeFlow.Api/Dockerfile）。
+  # 将其容器化，使其可通过 Compose 网络访问 OpenSandbox 控制平面。
+  storage-init:
+    image: alpine:3.23
+    command: ["sh", "-ec", "mkdir -p /data/assets /data/skills; touch /data/assets/.creativeflow-storage /data/skills/.creativeflow-storage"]
+    volumes:
+      - creativeflow-filestore:/data
+
+  api:
+    image: ${API_IMAGE:-creativeflow/api:dev}
+    build:
+      context: .
+      dockerfile: src/CreativeFlow.Api/Dockerfile
+      args:
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}
+    # 独立持久卷，不能放在 /app 发布目录或容器可写层中。
+    # storage-init 为这个隔离开发栈创建目录与标记；生产仍需显式准备。
+    volumes:
+      - creativeflow-filestore:/var/lib/creativeflow
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-5298}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      Postgres__ConnectionString: "Host=postgres;Port=5432;Database=creativeflow;Username=creativeflow;Password=${POSTGRES_PASSWORD}"
+      Postgres__RunMigrationsOnStartup: "true"
+      Redis__Configuration: "redis:6379"
+      Redis__InstanceName: "creativeflow:"
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: "5672"
+      RabbitMq__UserName: creativeflow
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Realtime__Backplane: "None"
+      Authentication__PublicOrigin: "${PUBLIC_ORIGIN:-http://localhost:5298}"
+      Authentication__GitHub__Enabled: "${GITHUB_OAUTH_ENABLED:-false}"
+      Authentication__GitHub__ClientId: "${GITHUB_OAUTH_CLIENT_ID:-}"
+      Authentication__GitHub__ClientSecret: "${GITHUB_OAUTH_CLIENT_SECRET:-}"
+      Authentication__GitHub__Scope: "read:user user:email"
+      Admin__DefaultUsername: "${ADMIN_USERNAME:-admin}"
+      Admin__DefaultPassword: "${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}"
+      DeviceIdentity__Pepper: "${DEVICE_PEPPER:?Set DEVICE_PEPPER in .env}"
+      Ai__EncryptionKey: "${AI_ENCRYPTION_KEY:?Set a 32-byte Base64 AI_ENCRYPTION_KEY in .env}"
+      Ai__AssetRoot: "/var/lib/creativeflow/assets"
+      Ai__RequireStorageMarker: "true"
+      Skills__Root: "/var/lib/creativeflow/skills"
+      Skills__RequireStorageMarker: "true"
+      Skills__SandboxEnabled: "${SKILLS_SANDBOX_ENABLED:-false}"
+      Skills__OpenSandboxDomain: "opensandbox:8090"
+      Skills__OpenSandboxApiKey: "${OPENSANDBOX_API_KEY:-}"
+      Skills__OpenSandboxImage: "opensandbox/code-interpreter:v1.1.0"
+      # Qdrant 当前要求与 API 共享回环网络；基础 Compose 不启动知识库。
+      # 启用方法见 docs/knowledge.md，不要改成普通 Docker 服务名。
+      Knowledge__Enabled: "false"
+    restart: unless-stopped
+
+volumes:
+  creativeflow-pgdata:
+  creativeflow-redisdata:
+  creativeflow-rabbitdata:
+  creativeflow-opensandbox-data:
+  creativeflow-filestore:

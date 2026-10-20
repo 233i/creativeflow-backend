@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "systemPrompt": "unchanged system",
+  "messages": [
+    { "role": "user", "content": [
+      { "kind": "text", "text": "观察图片" },
+      { "kind": "image", "imageUrl": "/api/v1/canvas/assets/00000000-0000-4000-8000-000000000001", "mediaType": "image/png" }
+    ] },
+    { "role": "assistant", "content": [
+      { "kind": "thinking", "text": "旧思考块" },
+      { "kind": "text", "text": "先检查" },
+      { "kind": "tool_use", "toolUseId": "call-a", "toolName": "read_canvas", "json": "{}", "providerItemId": "fc-a" },
+      { "kind": "tool_use", "toolUseId": "call-b", "toolName": "get_node_status", "json": "{\"nodeId\":\"n1\"}", "providerItemId": "fc-b" }
+    ] },
+    { "role": "user", "content": [
+      { "kind": "tool_result", "toolUseId": "call-a", "json": "{\"ok\":true}" },
+      { "kind": "tool_result", "toolUseId": "call-b", "json": "{\"error\":\"missing\"}", "isError": true },
+      { "kind": "text", "text": "继续" }
+    ] }
+  ],
+  "openaiChat": [
+    { "role": "system", "content": "unchanged system" },
+    { "role": "user", "content": [ { "type": "text", "text": "观察图片" }, { "type": "image_url", "image_url": { "url": "data:image/png;base64,AQID" } } ] },
+    { "role": "assistant", "content": "先检查", "tool_calls": [
+      { "id": "call-a", "type": "function", "function": { "name": "read_canvas", "arguments": "{}" } },
+      { "id": "call-b", "type": "function", "function": { "name": "get_node_status", "arguments": "{\"nodeId\":\"n1\"}" } }
+    ] },
+    { "role": "tool", "tool_call_id": "call-a", "content": "{\"ok\":true}" },
+    { "role": "tool", "tool_call_id": "call-b", "content": "{\"error\":\"missing\"}" },
+    { "role": "user", "content": "继续" }
+  ],
+  "responses": [
+    { "type": "message", "role": "user", "content": [ { "type": "input_text", "text": "观察图片" }, { "type": "input_image", "image_url": "data:image/png;base64,AQID" } ] },
+    { "type": "message", "role": "assistant", "content": [ { "type": "output_text", "text": "先检查" } ] },
+    { "type": "function_call", "call_id": "call-a", "name": "read_canvas", "arguments": "{}", "id": "fc-a" },
+    { "type": "function_call", "call_id": "call-b", "name": "get_node_status", "arguments": "{\"nodeId\":\"n1\"}", "id": "fc-b" },
+    { "type": "function_call_output", "call_id": "call-a", "output": "{\"ok\":true}" },
+    { "type": "function_call_output", "call_id": "call-b", "output": "{\"error\":\"missing\"}" },
+    { "type": "message", "role": "user", "content": [ { "type": "input_text", "text": "继续" } ] }
+  ],
+  "anthropic": [
+    { "role": "user", "content": [ { "type": "text", "text": "观察图片" }, { "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": "AQID" } } ] },
+    { "role": "assistant", "content": [ { "type": "text", "text": "先检查" },
+      { "type": "tool_use", "id": "call-a", "name": "read_canvas", "input": {} },
+      { "type": "tool_use", "id": "call-b", "name": "get_node_status", "input": { "nodeId": "n1" } }
+    ] },
+    { "role": "user", "content": [
+      { "type": "tool_result", "tool_use_id": "call-a", "content": "{\"ok\":true}", "is_error": false },
+      { "type": "tool_result", "tool_use_id": "call-b", "content": "{\"error\":\"missing\"}", "is_error": true },
+      { "type": "text", "text": "继续" }
+    ] }
+  ]
+}
