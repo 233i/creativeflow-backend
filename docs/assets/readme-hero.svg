@@ -1,0 +1,201 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1200"
+  height="360"
+  viewBox="0 0 1200 360"
+  fill="none"
+  role="img"
+  aria-labelledby="hero-title hero-description"
+>
+  <title id="hero-title">CreativeFlow backend</title>
+  <desc id="hero-description">
+    Intelligence, orchestrated. A shared runtime. Many possibilities. An
+    illustrative connected-node diagram, not an application screenshot.
+  </desc>
+  <defs>
+    <linearGradient
+      id="background"
+      x1="0"
+      y1="0"
+      x2="1200"
+      y2="360"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop stop-color="#101327" />
+      <stop offset="1" stop-color="#091522" />
+    </linearGradient>
+    <radialGradient
+      id="glow"
+      cx="0"
+      cy="0"
+      r="1"
+      gradientTransform="translate(900 100) rotate(90) scale(320 450)"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop stop-color="#6554E8" stop-opacity=".2" />
+      <stop offset="1" stop-color="#6554E8" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient
+      id="accent"
+      x1="56"
+      y1="0"
+      x2="1120"
+      y2="0"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop stop-color="#A79BFF" />
+      <stop offset="1" stop-color="#63E3C1" />
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#C9C7EB" opacity=".11" />
+    </pattern>
+  </defs>
+  <rect width="1200" height="360" rx="24" fill="url(#background)" />
+  <rect width="1200" height="360" rx="24" fill="url(#glow)" />
+  <rect x="596" y="24" width="580" height="312" rx="16" fill="url(#dots)" />
+  <path d="M56 316H1144" stroke="url(#accent)" stroke-opacity=".25" />
+  <g
+    font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif"
+  >
+    <circle cx="63" cy="62" r="6" fill="#A79BFF" />
+    <path d="M63 56V68M57 62H69" stroke="#101327" stroke-width="1.5" />
+    <text
+      x="84"
+      y="67"
+      font-size="13"
+      font-weight="600"
+      letter-spacing="2"
+      fill="#CAC5F7"
+    >
+      CREATIVEFLOW / BACKEND
+    </text>
+    <text
+      x="56"
+      y="139"
+      font-size="48"
+      font-weight="700"
+      letter-spacing="-1.8"
+      fill="#F8FAFC"
+    >
+      Intelligence,
+    </text>
+    <text
+      x="56"
+      y="194"
+      font-size="48"
+      font-weight="700"
+      letter-spacing="-1.8"
+      fill="#C4B9FF"
+    >
+      orchestrated.
+    </text>
+    <text x="58" y="235" font-size="17" fill="#A5AEC2">
+      A shared runtime. Many possibilities.
+    </text>
+    <text
+      x="58"
+      y="285"
+      font-size="11"
+      font-weight="600"
+      letter-spacing="2"
+      fill="#7EE4CB"
+    >
+      MODELS / KNOWLEDGE / TOOLS
+    </text>
+    <text x="640" y="74" font-size="11" letter-spacing="2" fill="#8E99B2">
+      CONNECTED BY DESIGN
+    </text>
+    <path
+      d="M800 149H870M991 180V210H775V240M991 210H1021V240"
+      stroke="#7665DB"
+      stroke-width="2"
+    />
+    <circle cx="838" cy="149" r="4" fill="#BAACFF" />
+    <circle cx="991" cy="210" r="4" fill="#BAACFF" />
+    <rect
+      x="640"
+      y="118"
+      width="160"
+      height="62"
+      rx="12"
+      fill="#171E35"
+      stroke="#3C4261"
+    />
+    <rect
+      x="870"
+      y="118"
+      width="242"
+      height="62"
+      rx="12"
+      fill="#302858"
+      stroke="#A294ED"
+    />
+    <rect
+      x="690"
+      y="240"
+      width="170"
+      height="62"
+      rx="12"
+      fill="#171E35"
+      stroke="#3C4261"
+    />
+    <rect
+      x="930"
+      y="240"
+      width="182"
+      height="62"
+      rx="12"
+      fill="#122E32"
+      stroke="#3E7E72"
+    />
+    <text
+      x="656"
+      y="143"
+      font-size="11"
+      font-weight="700"
+      letter-spacing="1"
+      fill="#DCE0ED"
+    >
+      API
+    </text>
+    <text x="656" y="163" font-size="12" fill="#9BA7BE">
+      REST · SSE · AG-UI
+    </text>
+    <circle cx="890" cy="140" r="4" fill="#BAACFF" />
+    <text
+      x="904"
+      y="144"
+      font-size="11"
+      font-weight="700"
+      letter-spacing="1"
+      fill="#F3EEFF"
+    >
+      EXECUTION
+    </text>
+    <text x="887" y="164" font-size="13" fill="#C3B9EA">Workers + MAF</text>
+    <text
+      x="706"
+      y="265"
+      font-size="11"
+      font-weight="700"
+      letter-spacing="1"
+      fill="#DCE0ED"
+    >
+      RESOURCES
+    </text>
+    <text x="706" y="285" font-size="12" fill="#9BA7BE">
+      Models + knowledge
+    </text>
+    <text
+      x="946"
+      y="265"
+      font-size="11"
+      font-weight="700"
+      letter-spacing="1"
+      fill="#A3EBD8"
+    >
+      STORAGE
+    </text>
+    <text x="946" y="285" font-size="12" fill="#8AC3B5">State + media</text>
+  </g>
+</svg>
