@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 using Microsoft.AspNetCore.SignalR;
 using CreativeFlow.Api.Middleware;
 using CreativeFlow.Application.Abstractions.Caching;
@@ -6,6 +7,7 @@ using CreativeFlow.Application.Abstractions.Persistence;
 using CreativeFlow.Application.Abstractions.Realtime;
 using CreativeFlow.Domain.Ai;
 using CreativeFlow.Domain.Identity;
+using CreativeFlow.Application.Contracts.Agent;
 
 namespace CreativeFlow.Api.Hubs;
 
@@ -113,7 +115,7 @@ public sealed class CreativeFlowHub(
         if (ReadDevice() is not { } device
             || !AgentRunId.TryParse(runId, out var parsedRun)
             || string.IsNullOrWhiteSpace(toolUseId)
-            || resultJson.Length > 1_000_000)
+            || Encoding.UTF8.GetByteCount(resultJson) > AgentTransportLimits.ToolResultBytes)
         {
             throw new HubException("Agent tool call not found.");
         }

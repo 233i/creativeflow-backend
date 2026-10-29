@@ -124,11 +124,18 @@ public sealed class AgentTurnRunner(
 
             var continuedRun = await toolExecution.ExecuteTurnAsync(
                 run, toolSet, toolUses, messages, iteration, ct);
-            if (continuedRun is null) return false;
-            run = continuedRun;
+            if (continuedRun.Run is null) return false;
+            run = continuedRun.Run;
 
             var refreshed = await agents.FindRunByIdAsync(run.Id, ct);
             if (refreshed is null || refreshed.Status == AgentRunStatus.Cancelled) return false;
+            run = refreshed;
+            if (continuedRun.Error is { } toolError)
+            {
+                await FailAsync(run, toolError, ct);
+                return false;
+            }
+
             run = refreshed with
             {
                 Status = AgentRunStatus.Running,

@@ -21,8 +21,8 @@ public sealed class AgentToolExecutionService(
     internal Task<AgentToolSet> PrepareAsync(AgentRun run, CancellationToken ct) =>
         discovery.PrepareAsync(run, ct);
 
-    /// <summary>按模型内容块顺序逐一调用工具，取消时返回空值阻止下一轮，绝不自动重试。</summary>
-    internal async Task<AgentRun?> ExecuteTurnAsync(
+    /// <summary>按内容块顺序执行工具并保存结果，把取消或通信故障返回编排器，不自动重试。</summary>
+    internal async Task<AgentToolTurnResult> ExecuteTurnAsync(
         AgentRun run,
         AgentToolSet toolSet,
         IReadOnlyList<AgentContentBlock> toolUses,
@@ -67,7 +67,7 @@ public sealed class AgentToolExecutionService(
             if (mcpBinding is not null)
             {
                 var current = await agents.FindRunByIdAsync(run.Id, ct);
-                if (current is null || current.Status == AgentRunStatus.Cancelled) return null;
+                if (current is null || current.Status == AgentRunStatus.Cancelled) return new(null);
                 var approvalId = $"approval:{toolUseId}";
                 run = current with
                 {
@@ -144,7 +144,7 @@ public sealed class AgentToolExecutionService(
                 else
                 {
                     var current = await agents.FindRunByIdAsync(run.Id, ct);
-                    if (current is null || current.Status == AgentRunStatus.Cancelled) return null;
+                    if (current is null || current.Status == AgentRunStatus.Cancelled) return new(null);
                     run = current with
                     {
                         Status = AgentRunStatus.AwaitingApproval,
@@ -182,7 +182,7 @@ public sealed class AgentToolExecutionService(
             else
             {
                 var current = await agents.FindRunByIdAsync(run.Id, ct);
-                if (current is null || current.Status == AgentRunStatus.Cancelled) return null;
+                if (current is null || current.Status == AgentRunStatus.Cancelled) return new(null);
 
                 if (approvalPolicy.CanvasSummary(descriptor, use.Json ?? "{}") is { } approvalSummary)
                 {
@@ -219,7 +219,7 @@ public sealed class AgentToolExecutionService(
                     else
                     {
                         current = await agents.FindRunByIdAsync(run.Id, ct);
-                        if (current is null || current.Status == AgentRunStatus.Cancelled) return null;
+                        if (current is null || current.Status == AgentRunStatus.Cancelled) return new(null);
                         result = await ExecuteCanvasAsync(
                             current, descriptor, toolUseId, toolName, use.Json ?? "{}",
                             iteration, ct);
@@ -264,8 +264,17 @@ public sealed class AgentToolExecutionService(
             await events.RecordAsync(
                 run, "tool.completed", eventPayload, text: null,
                 error: result.IsError ? "Agent tool failed." : null, ct);
+
+            // 浏览器断线意味着最后操作结果未知。先保存回执，再结束运行，避免模型继续发出
+            // 新的创建/生成请求或重复读取失联画布，消耗更多轮次和模型费用。
+            if (toolSite == "canvas" && result.IsError
+                && JsonNode.Parse(result.Json) is JsonObject failure
+                && failure["error"]?.ToString() == "canvas_tool_timeout")
+            {
+                return new(run, "canvas_tool_timeout");
+            }
         }
-        return run;
+        return new(run);
     }
 
     /// <summary>将工具结果映射为成功、拒绝、超时或失败状态。</summary>
@@ -312,3 +321,7 @@ public sealed class AgentToolExecutionService(
     }
 
 }
+
+/// <param name="Run">继续执行时的运行快照；取消或删除时为空。</param>
+/// <param name="Error">停止后续模型轮次的通信错误，工具结果已按原顺序保存。</param>
+internal sealed record AgentToolTurnResult(AgentRun? Run, string? Error = null);

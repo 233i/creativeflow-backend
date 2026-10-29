@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using CreativeFlow.Application.Abstractions.Ai;
+using CreativeFlow.Application.Abstractions.Realtime;
 using CreativeFlow.Domain.Ai;
 using CreativeFlow.UnitTests.Support;
 
@@ -10,6 +11,31 @@ public sealed class AgentToolExecutionCharacterizationTests
 {
     /// <summary>只允许显式指定的隔离 PostgreSQL，缺少时明确跳过。</summary>
     public static bool NoDatabase => ImageJobDatabase.NoDatabase;
+
+    /// <summary>画布通信超时只保存一次不确定结果，不再调用模型，也不执行模型预先给出的后续变更。</summary>
+    [Theory(Skip = "需要隔离测试库 CREATIVEFLOW_TEST_POSTGRES", SkipWhen = nameof(NoDatabase))]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanvasTimeoutStopsAfterRecordingTheUncertainResult(bool cancelled)
+    {
+        await using var fixture = await AgentRunFixture.CreateAsync();
+        fixture.Browser.ToolResult = new AgentCanvasToolResult("{\"error\":\"canvas_tool_timeout\"}", true);
+        if (cancelled) fixture.Browser.BeforeToolResult = async () =>
+            await fixture.Agents.UpdateRunAsync(fixture.Run with { Status = AgentRunStatus.Cancelled }, TestContext.Current.CancellationToken);
+        fixture.Models.Respond = _ => [
+            new(AgentModelEventKind.ToolUse, ToolUseId: "first", ToolName: "create_node", Json: "{\"kind\":\"text\"}"),
+            new(AgentModelEventKind.ToolUse, ToolUseId: "must-not-run", ToolName: "read_canvas", Json: "{}"),
+            new(AgentModelEventKind.Completed, StopReason: "tool_use")];
+        await fixture.ExecuteAsync();
+        Assert.Single(fixture.Models.Calls);
+        Assert.Equal(["first"], fixture.Browser.ExecutedTools);
+        Assert.Equal(cancelled ? ["run.started", "tool.started", "tool.completed"] : new[] { "run.started", "tool.started", "tool.completed", "run.failed" }, fixture.Browser.Events.Select(e => e.Type));
+        var run = await fixture.ReadRunAsync();
+        Assert.Equal(cancelled ? AgentRunStatus.Cancelled : AgentRunStatus.Failed, run.Status);
+        Assert.Equal(cancelled ? null : "canvas_tool_timeout", run.Error);
+        Assert.Equal(1, await fixture.Database.CountAsync("SELECT count(*) FROM agent_tool_call WHERE status='timeout'"));
+        Assert.Contains(await fixture.MessagesAsync(), message => message.ContentJson.Contains("canvas_tool_timeout", StringComparison.Ordinal));
+    }
 
     /// <summary>MCP 成功、拒绝和超时都只经过一次审批；异常不触发工具重试。</summary>
     [Theory(Skip = "需要隔离测试库 CREATIVEFLOW_TEST_POSTGRES", SkipWhen = nameof(NoDatabase))]

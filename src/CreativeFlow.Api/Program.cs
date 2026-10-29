@@ -19,6 +19,7 @@ using CreativeFlow.Application.Abstractions.Persistence;
 using CreativeFlow.Application.Abstractions.Realtime;
 using CreativeFlow.Application.Abstractions.Security;
 using CreativeFlow.Application.Contracts.Device;
+using CreativeFlow.Application.Contracts.Agent;
 using CreativeFlow.Application.Features.Identity;
 using CreativeFlow.Infrastructure;
 using CreativeFlow.Infrastructure.Options;
@@ -53,7 +54,10 @@ builder.Services.AddSingleton<IRealtimeNotifier>(sp => sp.GetRequiredService<Sig
 builder.Services.AddSingleton<IAgentRealtimeSink>(sp => sp.GetRequiredService<SignalRNotifier>());
 builder.Services.AddSingleton<ExternalWorkflowRateLimiter>();
 
-var signalR = builder.Services.AddSignalR();
+var signalR = builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = AgentTransportLimits.HubMessageBytes;
+});
 
 // 插入解析器链，而不是直接赋值 TypeInfoResolver；直接赋值会丢弃 SignalR 为自身协议类型安装的解析器。
 builder.Services.Configure<JsonHubProtocolOptions>(options =>
@@ -161,7 +165,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
-app.MapHub<CreativeFlowHub>("/hubs/creativeflow");
+app.MapHub<CreativeFlowHub>("/hubs/creativeflow", options =>
+{
+    options.ApplicationMaxBufferSize = AgentTransportLimits.HubMessageBytes;
+});
 
 app.Run();
 return 0;

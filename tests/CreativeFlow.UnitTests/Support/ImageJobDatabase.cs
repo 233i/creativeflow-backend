@@ -48,7 +48,15 @@ internal sealed class ImageJobDatabase : IAsyncDisposable
                 if (migrationsThrough is { } last && int.Parse(name["CreativeFlow.Migrations.".Length..].Split("__", StringSplitOptions.None)[0], System.Globalization.CultureInfo.InvariantCulture) > last) continue;
                 await using var stream = assembly.GetManifestResourceStream(name)!;
                 using var reader = new StreamReader(stream);
-                await database.SqlAsync(await reader.ReadToEndAsync(TestContext.Current.CancellationToken));
+                var sql = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+                // 发行迁移 0045 显式限定 public；隔离测试只把该命名空间映射到本夹具的随机 schema。
+                // 不修改迁移资源或校验和，也不允许测试触碰共享 public 表。
+                if (name.EndsWith("0045__creativeflow_namespace.sql", StringComparison.Ordinal))
+                {
+                    sql = sql.Replace("search_path = public", $"search_path = {database.schema}", StringComparison.Ordinal)
+                        .Replace("'public'", $"'{database.schema}'", StringComparison.Ordinal);
+                }
+                await database.SqlAsync(sql);
             }
             await database.SqlAsync($$"""
                 INSERT INTO creativeflow_account(account_id,display_name) VALUES ('{{database.Account}}','Queue A'), ('{{database.OtherAccount}}','Queue B');

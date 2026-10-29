@@ -165,6 +165,8 @@ internal sealed class AgentRunFixture : IAsyncDisposable
         public bool Approve { get; set; } = true;
         /// <summary>在工具回执前注入数据库取消竞争，不通过等待制造竞态。</summary>
         public Func<Task>? BeforeToolResult { get; set; }
+        /// <summary>模拟浏览器报告的通信错误，不执行实际画布或付费生成。</summary>
+        public AgentCanvasToolResult ToolResult { get; set; } = new("{\"ok\":true}", false);
         /// <summary>审批返回前注入权限变化或取消，验证运行器的既有复验时点。</summary>
         public Func<Task>? BeforeApprovalResult { get; set; }
         /// <summary>在实时发送前观察数据库顺序，或模拟通知故障。</summary>
@@ -193,7 +195,7 @@ internal sealed class AgentRunFixture : IAsyncDisposable
             Assert.Equal(AgentRunStatus.Running, run.Status);
             ExecutedTools.Add(payload.ToolUseId);
             if (BeforeToolResult is not null) await BeforeToolResult();
-            Assert.True(Bridge.Submit(run.Id, payload.ToolUseId, "{\"ok\":true}", false));
+            Assert.True(Bridge.Submit(run.Id, payload.ToolUseId, ToolResult.Json, ToolResult.IsError));
         }
 
         /// <summary>断言运行处于等待审批状态，记录审批标识并按夹具决策通过原画布桥返回结果。</summary>
