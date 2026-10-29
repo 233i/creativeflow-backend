@@ -32,6 +32,13 @@ by default; a separate explicit confirmation is required for eligible historical
 outputs. The deletion preview reports the actual blockers. Permanent cleanup
 keeps an audit tombstone and never reuses the asset ID.
 
+Agent tool receipts, assistant replies and execution events are observations.
+They can record a canvas that still mentions recycled or purged assets without
+restoring those assets or granting access to their bytes. Migration 0046 keeps
+these audit references while applying the existing admission check to tool
+inputs and new user image attachments. Workflow and generation admission,
+asset permissions, recycling and permanent-cleanup protections are unchanged.
+
 ## Authorization
 
 Each read, download, preview, reuse, and lifecycle action checks its applicable

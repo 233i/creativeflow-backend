@@ -199,12 +199,10 @@ bash scripts/verify-maf-migration.sh
 ~~~
 
 Never point tests at an application database. Tests create and remove their own
-schemas. **Known test limitation:** schema-isolated database fixtures do not
-currently match migration 0045, which operates on `public`. The database suite
-can therefore fail with missing `creativeflow_*` relations even when the real
-empty-database migration succeeds. Adapt the fixture isolation strategy before
-using this suite as a release gate; do not edit historical migrations or disable
-the failing cases. The strict verifier also checks XML comments and may report
+schemas. The schema-isolated fixture maps migration 0045's explicit `public`
+namespace to its owned random schema at execution time; the release migration
+and its checksum remain unchanged. Do not edit historical migrations or disable
+failing cases. The strict verifier also checks XML comments and may report
 existing documentation gaps.
 
 The locked MessagePack dependency also has a reported security advisory

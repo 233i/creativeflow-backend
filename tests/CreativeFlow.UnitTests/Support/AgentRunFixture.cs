@@ -51,9 +51,10 @@ internal sealed class AgentRunFixture : IAsyncDisposable
 
     /// <summary>建立最小的真实账号、模型、会话和运行，再装配原业务路径。</summary>
     public static async Task<AgentRunFixture> CreateAsync(ProviderType protocol = ProviderType.OpenAiChat, int? maxOutputTokens = null,
-        IMcpRuntime? mcpRuntime = null, ISkillStore? skillStore = null, ISkillScriptRunner? skillRunner = null)
+        IMcpRuntime? mcpRuntime = null, ISkillStore? skillStore = null, ISkillScriptRunner? skillRunner = null,
+        int? migrationsThrough = null)
     {
-        var fixture = new AgentRunFixture { Database = await ImageJobDatabase.CreateAsync() };
+        var fixture = new AgentRunFixture { Database = await ImageJobDatabase.CreateAsync(migrationsThrough) };
         try
         {
             var ct = TestContext.Current.CancellationToken;
