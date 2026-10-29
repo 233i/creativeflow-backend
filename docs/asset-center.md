@@ -39,6 +39,11 @@ these audit references while applying the existing admission check to tool
 inputs and new user image attachments. Workflow and generation admission,
 asset permissions, recycling and permanent-cleanup protections are unchanged.
 
+When an older failed or cancelled Agent run has no recorded tool result, the
+next model request receives an explicit unknown/error placeholder for that
+call. This closes the model conversation without claiming the operation
+succeeded, rewriting stored history, or automatically executing the tool again.
+
 ## Authorization
 
 Each read, download, preview, reuse, and lifecycle action checks its applicable

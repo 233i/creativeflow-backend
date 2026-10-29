@@ -21,12 +21,41 @@ public sealed class AgentModelMessageConverter(
     {
         var history = await agents.ListMessagesAsync(run.DeviceId, run.SessionId, ct);
         var messages = new List<AgentModelMessage>(history.Count);
+        var pending = new List<string>();
+        AgentRunId? previousRun = null;
+        var hasPreviousRun = false;
         foreach (var stored in history)
         {
-            if (await ToModelMessageAsync(stored, run.DeviceId, ct) is { } message)
-                messages.Add(message);
+            if (hasPreviousRun && stored.RunId != previousRun)
+            {
+                if (previousRun != run.Id) AppendMissingToolResults(messages, pending);
+                pending.Clear();
+            }
+            previousRun = stored.RunId;
+            hasPreviousRun = true;
+            if (await ToModelMessageAsync(stored, run.DeviceId, ct) is not { } message) continue;
+            messages.Add(message);
+            foreach (var block in message.Content)
+            {
+                if (string.IsNullOrEmpty(block.ToolUseId)) continue;
+                if (block.Kind == AgentContentKind.ToolUse && !pending.Contains(block.ToolUseId))
+                    pending.Add(block.ToolUseId);
+                else if (block.Kind == AgentContentKind.ToolResult)
+                    pending.Remove(block.ToolUseId);
+            }
         }
+        if (hasPreviousRun && previousRun != run.Id) AppendMissingToolResults(messages, pending);
         return messages;
+    }
+
+    /// <summary>仅在模型输入中闭合已结束轮次缺失的回执，不改写历史、不推断成功，也不重新执行工具。</summary>
+    private static void AppendMissingToolResults(List<AgentModelMessage> messages, List<string> pending)
+    {
+        if (pending.Count == 0) return;
+        const string unavailable = """{"status":"unknown","error":"previous_tool_result_unavailable","message":"The previous run ended without a recorded result. Do not assume success or repeat mutations based on this placeholder."}""";
+        messages.Add(new AgentModelMessage(AgentMessageRole.User,
+            [.. pending.Select(id => new AgentContentBlock(
+                AgentContentKind.ToolResult, ToolUseId: id, Json: unavailable, IsError: true))]));
     }
 
     /// <summary>持久化带会话顺序号的 Agent 消息。</summary>
