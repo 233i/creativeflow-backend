@@ -30,7 +30,7 @@ public sealed class AdminKnowledgeController(IKnowledgeRepository repository, Kn
 
     /// <summary>列出实现容量范围内的知识库安全元数据，降低创建配额不会隐藏已有库。</summary>
     [HttpGet(Name = "ListAdminKnowledgeBases")]
-    public Task<IActionResult> List(CancellationToken ct) => GuardAsync(async () => Ok(await repository.ListAsync(ct)));
+    public Task<IActionResult> List(CancellationToken ct, [FromQuery] bool includeDeleted = false) => GuardAsync(async () => Ok(await repository.ListAsync(ct, includeDeleted)));
 
     /// <summary>创建库并绑定已保存的向量配置，不发送模型请求。</summary>
     [HttpPost(Name = "CreateAdminKnowledgeBase")]

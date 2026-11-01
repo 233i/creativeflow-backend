@@ -7,7 +7,7 @@ namespace CreativeFlow.Application.Abstractions.Persistence;
 public interface IKnowledgeRepository
 {
     /// <summary>读取有界管理列表。</summary>
-    Task<KnowledgeBaseResponse[]> ListAsync(CancellationToken ct);
+    Task<KnowledgeBaseResponse[]> ListAsync(CancellationToken ct, bool includeDeleted = false);
     /// <summary>按库 ID 读取元数据。</summary>
     Task<KnowledgeBaseResponse?> FindAsync(Guid id, CancellationToken ct);
     /// <summary>在配额内创建新库，不调用模型。</summary>

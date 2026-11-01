@@ -126,6 +126,52 @@ public sealed class KnowledgeHttpTests
         Assert.Equal(0, f.Data.Model.Calls);
     }
 
+    /// <summary>真实序列化、ZIP 下载及删除确认共享管理员边界，更新冲突不覆盖新值。</summary>
+    [Fact(Skip = "需要隔离测试库", SkipWhen = nameof(NoDatabase))]
+    public async Task ManagementRoutesExportCompareAndDeleteWithAudit()
+    {
+        await using var f = await Fixture.CreateAsync(); var ct = TestContext.Current.CancellationToken;
+        var path = $"{Fixture.Path}/{f.Data.Library.Id}";
+        using var update = await f.Client.PatchAsJsonAsync(path, new UpdateKnowledgeMetadataRequest("HTTP 更新", "用途", 1), ct);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var library = (await update.Content.ReadFromJsonAsync<KnowledgeBaseResponse>(ct))!; Assert.Equal(2, library.Revision);
+        using var stale = await f.Client.PatchAsJsonAsync(path, new UpdateKnowledgeMetadataRequest("旧请求", "", 1), ct);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        var version = await f.Data.ImportAsync(); await f.Data.Processor.ProcessNextAsync(ct);
+        using var archive = await f.Client.GetAsync(path + $"/export?versionId={version.Id}", ct);
+        Assert.Equal(HttpStatusCode.OK, archive.StatusCode); Assert.Equal("application/zip", archive.Content.Headers.ContentType!.MediaType);
+        Assert.NotNull(archive.Content.Headers.ContentDisposition); Assert.True(archive.Headers.CacheControl!.Private); Assert.True(archive.Headers.CacheControl.NoStore);
+        using var compare = await f.Client.GetAsync(path + $"/compare?from={version.Id}&to={version.Id}", ct);
+        Assert.Equal(HttpStatusCode.OK, compare.StatusCode);
+        var difference = (await compare.Content.ReadFromJsonAsync<KnowledgeVersionComparison>(ct))!;
+        Assert.Equal("unchanged", Assert.Single(difference.Documents).Change);
+        var preview = (await f.Client.GetFromJsonAsync<KnowledgeDeletionPreview>(path + "/deletion", ct))!;
+        using var deletion = new HttpRequestMessage(HttpMethod.Delete, path)
+        { Content = JsonContent.Create(new DeleteKnowledgeRequest(preview.Name, "HTTP 验收", preview.Revision, preview.ImpactToken)) };
+        using var accepted = await f.Client.SendAsync(deletion, ct); Assert.Equal(HttpStatusCode.Accepted, accepted.StatusCode);
+        await f.Data.Processor.ProcessNextAsync(ct);
+        using var blocked = await f.Client.GetAsync(path + "/export", ct); Assert.Equal(HttpStatusCode.BadRequest, blocked.StatusCode);
+        var audit = (await f.Client.GetFromJsonAsync<KnowledgeManagementAudit[]>(path + "/audit", ct))!;
+        Assert.Contains(audit, item => item.Action == "metadata_updated"); Assert.Contains(audit, item => item.Action == "exported");
+        Assert.Contains(audit, item => item.Action == "delete_completed"); Assert.Equal(1, f.Data.Model.Calls);
+    }
+
+    /// <summary>全部新增管理路由在访问数据库正文、变更元数据或创建归档前验证管理员身份和功能开关。</summary>
+    [Theory(Skip = "需要隔离测试库", SkipWhen = nameof(NoDatabase))]
+    [InlineData(false, true, 401)]
+    [InlineData(true, false, 404)]
+    public async Task ManagementRoutesRejectOtherSubjects(bool admin, bool enabled, int status)
+    {
+        await using var f = await Fixture.CreateAsync(admin, !admin, enabled); var ct = TestContext.Current.CancellationToken;
+        var path = $"{Fixture.Path}/{f.Data.Library.Id}";
+        foreach (var endpoint in new[] { "/deletion", "/audit", "/export", $"/compare?from={Guid.NewGuid()}&to={Guid.NewGuid()}" })
+        { using var response = await f.Client.GetAsync(path + endpoint, ct); Assert.Equal(status, (int)response.StatusCode); }
+        using var update = await f.Client.PatchAsJsonAsync(path, new UpdateKnowledgeMetadataRequest("禁止修改", "", 1), ct); Assert.Equal(status, (int)update.StatusCode);
+        using var deletion = new HttpRequestMessage(HttpMethod.Delete, path) { Content = JsonContent.Create(new DeleteKnowledgeRequest(f.Data.Library.Name, "禁止删除", 1, "test")) };
+        using var removed = await f.Client.SendAsync(deletion, ct); Assert.Equal(status, (int)removed.StatusCode);
+        Assert.Equal(0, f.Data.Model.Calls); Assert.Empty(await f.Data.Repository.AuditAsync(f.Data.Library.Id, ct));
+    }
+
     /// <summary>测试持有独立数据库和内存 HTTP 宿主。</summary>
     private sealed class Fixture : IAsyncDisposable
     {
@@ -149,6 +195,8 @@ public sealed class KnowledgeHttpTests
             builder.WebHost.UseTestServer(); builder.Logging.ClearProviders();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Knowledge:Enabled"] = enabled.ToString() });
             builder.Services.AddSingleton<IKnowledgeRepository>(fixture.Data.Repository);
+            builder.Services.AddSingleton<IKnowledgeManagementRepository>(fixture.Data.Repository);
+            builder.Services.AddScoped<KnowledgeManagementService>();
             builder.Services.AddSingleton<IKnowledgeEmbedding>(fixture.Data.Model);
             builder.Services.AddSingleton<IKnowledgeIndexStore>(fixture.Data.Storage);
             builder.Services.AddScoped<KnowledgeLibraryService>();

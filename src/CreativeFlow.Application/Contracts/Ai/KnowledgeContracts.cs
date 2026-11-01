@@ -60,7 +60,17 @@ public sealed record KnowledgePreview(string Digest, KnowledgeChunk[] Chunks, in
 /// <param name="ModelId">向量模型标识。</param>
 /// <param name="Enabled">停用后立即拒绝检索。</param>
 /// <param name="ActiveVersion">当前明确激活的索引版本。</param>
-public sealed record KnowledgeBaseResponse(Guid Id, string Name, string Description, Guid ModelId, bool Enabled, Guid? ActiveVersion);
+public sealed record KnowledgeBaseResponse(Guid Id, string Name, string Description, Guid ModelId, bool Enabled, Guid? ActiveVersion)
+{
+    /// <summary>管理员元数据的乐观并发修订。</summary>
+    public long Revision { get; init; } = 1;
+    /// <summary>none、deleting、delete_failed 或 deleted；进入删除后不能重新启用。</summary>
+    public string DeletionStatus { get; init; } = "none";
+    /// <summary>远端清理失败时的脱敏说明。</summary>
+    public string? DeletionError { get; init; }
+    /// <summary>全部正文及索引确认清理完成的时间。</summary>
+    public DateTimeOffset? DeletedAt { get; init; }
+}
 
 /// <summary>索引任务的有界进度；向量检查点不进入响应。</summary>
 /// <param name="Id">索引版本兼任务标识。</param>

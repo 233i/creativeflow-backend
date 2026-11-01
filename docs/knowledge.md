@@ -52,6 +52,60 @@ split by sentence; character-level splitting is the last resort and is marked
 as a continuation. Each chunk retains its title path, source range, and source
 offset so citations can point back to the normalized document.
 
+## Library management
+
+Administrators can edit a library's name and description in **Knowledge settings**.
+Updates carry the displayed `revision`; a concurrent change returns HTTP 409 and
+requires an explicit reload. Renaming does not re-embed documents or change pinned
+workflow versions. Before/after metadata and the administrator are audited.
+
+Deletion starts with an impact preview. All persistent pins are blockers: workflow
+drafts, templates, deployment versions, and runs including historical runs. Disabling
+an API or a library does not release those references. Queued, embedding, writing,
+or cleaning index tasks must finish first. Confirmation requires the exact current
+name, a reason, revision, and the preview's impact token. The transaction recomputes
+the impact; it never trusts the client preview. New graph references and index
+recovery cannot enter a library once deletion is accepted.
+
+Accepted deletion disables the library and clears its active pointer. The existing
+index worker deletes each fixed Qdrant collection before removing local chunks,
+vectors, membership rows, and unreferenced document bodies. Failures retain the
+remaining data and enter `delete_failed`; an administrator must recheck and retry.
+Completion retains a metadata tombstone and audits. The **Deleted** list opens
+these records for audit only. It does not restore deleted source documents.
+
+**Export** downloads all readable versions or one selected version as a ZIP.
+`manifest.json` maps original names to numbered safe paths and includes content
+SHA-256 values and version/chunking metadata. Text is the normalized UTF-8 source.
+The archive excludes credentials, access grants, embedding snapshots, and vectors;
+it is a source archive rather than a complete database/vector backup. Exports use a
+private temporary stream removed on close, serialize one bounded version at a time,
+and audit the requested scope. Disabled or deleting libraries cannot export bodies.
+
+**Version comparison** shows added, removed, changed, and unchanged documents,
+actual byte/chunk counts, and chunking/index layout changes. Individual documents
+have a paged plain-text line comparison. Large changed regions use an explicitly
+marked block replacement instead of an unbounded quadratic comparison. Both
+versions must belong to the current readable library, and comparison never calls
+a model or changes the active version.
+
+Management endpoints under `/api/v1/admin/knowledge-bases/{id}`:
+
+| Method | Path | Operation |
+| --- | --- | --- |
+| PATCH | root | Edit name/description with revision |
+| GET | `/deletion` | Current deletion impact and blockers |
+| DELETE | root | Confirm or retry asynchronous deletion |
+| GET | `/audit` | Latest 100 metadata/deletion/export audit records |
+| GET | `/export?versionId=...` | ZIP; omit versionId for all readable versions |
+| GET | `/compare?from=...&to=...` | Document and configuration summary |
+| GET | `/compare/document?from=...&to=...&name=...&offset=0&limit=100` | Paged source line differences |
+
+The administrator list accepts `includeDeleted=true` for tombstones; normal catalogs
+exclude deleted libraries. Migration `0047` adds the lifecycle, audit, and reference
+guards. Apply it before running this code; migrations `0001`–`0045` and their frozen
+checksum file remain unchanged.
+
 ## Retrieval
 
 The retrieval settings select vector, keyword, or hybrid search; the default

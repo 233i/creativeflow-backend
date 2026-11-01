@@ -142,7 +142,12 @@ public sealed class RequestHistoryDatabaseTests
                 {
                     using var stream = assembly.GetManifestResourceStream(name)!;
                     using var reader = new StreamReader(stream);
-                    await database.SqlAsync(await reader.ReadToEndAsync(TestContext.Current.CancellationToken));
+                    var sql = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+                    // 冻结迁移限定 public，测试只能映射到本实例的隔离 schema。
+                    if (name.EndsWith("0045__creativeflow_namespace.sql", StringComparison.Ordinal))
+                        sql = sql.Replace("search_path = public", $"search_path = {database._schema}", StringComparison.Ordinal)
+                            .Replace("'public'", $"'{database._schema}'", StringComparison.Ordinal);
+                    await database.SqlAsync(sql);
                 }
                 database.Repository = new(database._source);
                 await database.SeedAsync();

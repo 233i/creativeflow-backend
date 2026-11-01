@@ -8,7 +8,7 @@ using CreativeFlow.Application.Features.Knowledge;
 namespace CreativeFlow.Infrastructure.Persistence;
 
 /// <summary>知识资源专用 PostgreSQL 仓储；会话锁仅保护新索引队列，不占用旧任务锁。</summary>
-public sealed partial class KnowledgeRepository(NpgsqlDataSource source, KnowledgeQuotas? configuredQuotas = null) : IKnowledgeRepository
+public sealed partial class KnowledgeRepository(NpgsqlDataSource source, KnowledgeQuotas? configuredQuotas = null) : IKnowledgeRepository, IKnowledgeManagementRepository
 {
     /// <summary>未显式配置时保持保守试点额度，注册层会验证部署者给定的上限。</summary>
     private KnowledgeQuotas Quotas => (configuredQuotas ?? new()).Validate();
@@ -16,17 +16,18 @@ public sealed partial class KnowledgeRepository(NpgsqlDataSource source, Knowled
     private const string VersionColumns = "id, base_id, digest, model_snapshot::text AS model_snapshot, status, error, created_at, document_count, chunk_count, embedded_count, written_count, reused_count, reserved_bytes, source_version_id, chunk_size, overlap, number, parser_version, index_schema";
 
     /// <summary>最多返回十个试点知识库的元数据。</summary>
-    public async Task<KnowledgeBaseResponse[]> ListAsync(CancellationToken ct)
+    public async Task<KnowledgeBaseResponse[]> ListAsync(CancellationToken ct, bool includeDeleted = false)
     {
         await using var connection = await source.OpenConnectionAsync(ct);
-        return (await connection.QueryAsync<KnowledgeBaseResponse>("SELECT id, name, description, model_id, enabled, active_version FROM knowledge_base ORDER BY created_at DESC LIMIT 100")).ToArray();
+        return (await connection.QueryAsync<KnowledgeManagementBaseRow>("SELECT " + BaseColumns + " FROM knowledge_base WHERE (@IncludeDeleted OR deletion_status <> 'deleted') ORDER BY (deletion_status = 'deleted'), created_at DESC LIMIT @Limit",
+            new { IncludeDeleted = includeDeleted, Limit = includeDeleted ? 200 : 100 })).Select(row => row.ToModel()).ToArray();
     }
 
     /// <summary>库不存在时不返回其他资源信息。</summary>
     public async Task<KnowledgeBaseResponse?> FindAsync(Guid id, CancellationToken ct)
     {
         await using var connection = await source.OpenConnectionAsync(ct);
-        return await connection.QuerySingleOrDefaultAsync<KnowledgeBaseResponse>("SELECT id, name, description, model_id, enabled, active_version FROM knowledge_base WHERE id = @Id", new { Id = id });
+        return (await connection.QuerySingleOrDefaultAsync<KnowledgeManagementBaseRow>("SELECT " + BaseColumns + " FROM knowledge_base WHERE id = @Id", new { Id = id }))?.ToModel();
     }
 
     /// <summary>串行检查试点配额并新增，不覆盖同名旧库。</summary>
@@ -35,7 +36,7 @@ public sealed partial class KnowledgeRepository(NpgsqlDataSource source, Knowled
         await using var connection = await source.OpenConnectionAsync(ct);
         await using var transaction = await connection.BeginTransactionAsync(ct);
         await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(721903261)", transaction: transaction);
-        var count = await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM knowledge_base", transaction: transaction);
+        var count = await connection.ExecuteScalarAsync<int>("SELECT count(*) FROM knowledge_base WHERE deletion_status <> 'deleted'", transaction: transaction);
         if (count >= Quotas.MaxLibraries) throw new KnowledgeException($"已达到 {Quotas.MaxLibraries} 个知识库的配置上限。");
         var id = Guid.CreateVersion7();
         await connection.ExecuteAsync("INSERT INTO knowledge_base(id, name, description, model_id) VALUES (@Id, @Name, @Description, @ModelId)",
@@ -48,7 +49,8 @@ public sealed partial class KnowledgeRepository(NpgsqlDataSource source, Knowled
     public async Task SetEnabledAsync(Guid id, bool enabled, CancellationToken ct)
     {
         await using var connection = await source.OpenConnectionAsync(ct);
-        await connection.ExecuteAsync("UPDATE knowledge_base SET enabled = @Enabled WHERE id = @Id", new { Id = id, Enabled = enabled });
+        if (await connection.ExecuteAsync("UPDATE knowledge_base SET enabled = @Enabled WHERE id = @Id AND deletion_status = 'none'", new { Id = id, Enabled = enabled }) == 0)
+            throw new KnowledgeException("知识库不存在或已经进入删除流程，不能改变启用状态。");
     }
 
     /// <summary>只在数据库计算进度，列表不加载原文、向量或模型快照。</summary>
@@ -133,14 +135,20 @@ public sealed partial class KnowledgeRepository(NpgsqlDataSource source, Knowled
     public async Task SaveProgressAsync(KnowledgeVersion version, CancellationToken ct)
     {
         await using var connection = await source.OpenConnectionAsync(ct);
+        await using var transaction = await connection.BeginTransactionAsync(ct);
+        await connection.ExecuteAsync("SELECT pg_advisory_xact_lock(721903263)", transaction: transaction);
+        if (version.Status is not ("cleaning" or "cleanup_failed" or "deleted") && !await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS(SELECT 1 FROM knowledge_base WHERE id = @BaseId AND deletion_status = 'none')", new { version.BaseId }, transaction))
+            throw new KnowledgeException("知识库已进入删除流程，不能恢复索引任务。");
         // 显式恢复 writing/failed 的完整向量版本时允许幂等重写全部索引，修复集合丢失或计数不一致。
         if (version.Status == "queued")
-            await connection.ExecuteAsync("UPDATE knowledge_chunk c SET written = false FROM knowledge_version v WHERE c.version_id = v.id AND v.id = @Id AND v.base_id = @BaseId AND v.status IN ('failed','unknown')", new { version.Id, version.BaseId });
+            await connection.ExecuteAsync("UPDATE knowledge_chunk c SET written = false FROM knowledge_version v WHERE c.version_id = v.id AND v.id = @Id AND v.base_id = @BaseId AND v.status IN ('failed','unknown')", new { version.Id, version.BaseId }, transaction);
         await connection.ExecuteAsync("""
             UPDATE knowledge_version SET status = @Status, error = @Error,
                 written_count = (SELECT count(*) FROM knowledge_chunk WHERE version_id = @Id AND written),
                 updated_at = clock_timestamp() WHERE id = @Id AND base_id = @BaseId
-            """, version);
+            """, version, transaction);
+        await transaction.CommitAsync(ct);
     }
 
     /// <summary>释放 PostgreSQL 会话锁后归还连接；不能将带锁连接放回池。</summary>

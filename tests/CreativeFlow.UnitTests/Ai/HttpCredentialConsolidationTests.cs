@@ -66,6 +66,7 @@ public sealed class HttpCredentialConsolidationTests
         Assert.Equal(1, await db.CountAsync("SELECT count(*) FROM workflow_run WHERE status='succeeded'")); // unrelated new history survives
         Assert.Equal(0, await db.CountAsync("SELECT count(*) FROM workflow_node_run WHERE node_type='externalCall'"));
         Assert.Equal(1, await db.CountAsync("SELECT (summary->>'deletedHistoricalRuns')::bigint FROM workflow_http_consolidation_audit"));
+        await db.ApplyRemainingAsync(37);
         var repository = new HttpCredentialRepository(db.Source);
         var migrated = (await repository.FindRevisionAsync(seed.Credential, seed.Revision, Ct))!;
         if (authenticated) Assert.Equal("Bearer synthetic-secret", WorkflowV2Values.Text(JsonNode.Parse(protector.Unprotect(migrated.Secret!))!["Authorization"]));

@@ -43,6 +43,8 @@ public static partial class DependencyInjection
                 ConnectTimeout = TimeSpan.FromSeconds(5), PooledConnectionLifetime = TimeSpan.FromMinutes(1),
             });
         services.AddScoped<IKnowledgeRepository, KnowledgeRepository>();
+        services.AddScoped<IKnowledgeManagementRepository, KnowledgeRepository>();
+        services.AddScoped<KnowledgeManagementService>();
         services.AddScoped<IKnowledgeAccessRepository, KnowledgeAccessRepository>();
         services.AddScoped<IRerankSettingsRepository, RerankSettingsRepository>();
         services.AddSingleton(sp => new RerankNetwork(new EmbeddingOptions

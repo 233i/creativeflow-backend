@@ -30,13 +30,20 @@ public sealed class KnowledgeDocumentTests
             UPDATE knowledge_base SET active_version='{{version}}' WHERE id='{{f.Library.Id}}';
             """);
         var assembly = typeof(CreativeFlow.Infrastructure.Persistence.Migrations.MigrationRunner).Assembly;
-        await using var stream = assembly.GetManifestResourceStream(assembly.GetManifestResourceNames().Single(n => n.Contains("0031__", StringComparison.Ordinal)))!;
-        using var reader = new StreamReader(stream); await f.Database.SqlAsync(await reader.ReadToEndAsync(Ct));
-        // 旧试点数据先经过拆表迁移，再应用语义切片元数据迁移；默认值保证历史片段仍可读取。
-        await using var semanticStream = assembly.GetManifestResourceStream(assembly.GetManifestResourceNames().Single(n => n.Contains("0034__", StringComparison.Ordinal)))!;
-        using var semanticReader = new StreamReader(semanticStream); await f.Database.SqlAsync(await semanticReader.ReadToEndAsync(Ct));
-        await using var hybridStream = assembly.GetManifestResourceStream(assembly.GetManifestResourceNames().Single(n => n.Contains("0042__", StringComparison.Ordinal)))!;
-        using var hybridReader = new StreamReader(hybridStream); await f.Database.SqlAsync(await hybridReader.ReadToEndAsync(Ct));
+        // 使用真实顺序升级到当前架构，包含命名空间迁移；不修改发行 SQL 或原始校验文件。
+        foreach (var name in assembly.GetManifestResourceNames().Where(name => name.StartsWith("CreativeFlow.Migrations.", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            var number = int.Parse(name["CreativeFlow.Migrations.".Length..].Split("__", StringSplitOptions.None)[0], System.Globalization.CultureInfo.InvariantCulture);
+            if (number <= 30) continue;
+            await using var stream = assembly.GetManifestResourceStream(name)!; using var reader = new StreamReader(stream);
+            var sql = await reader.ReadToEndAsync(Ct);
+            if (number == 45)
+            {
+                var schema = new NpgsqlConnectionStringBuilder(f.Database.Source.ConnectionString).SearchPath!;
+                sql = sql.Replace("search_path = public", $"search_path = {schema}", StringComparison.Ordinal).Replace("'public'", $"'{schema}'", StringComparison.Ordinal);
+            }
+            await f.Database.SqlAsync(sql);
+        }
         var restored = (await f.Repository.FindVersionAsync(f.Library.Id, version, Ct))!;
         Assert.Equal("dense-v1", restored.IndexSchema);
         Assert.Equal("old-digest", restored.Digest); Assert.Equal("ready", restored.Status);
@@ -195,7 +202,7 @@ public sealed class KnowledgeDocumentTests
     private static async Task<Guid> Admin(KnowledgeFixture fixture)
     {
         var id = Guid.NewGuid();
-        await fixture.Database.SqlAsync($"INSERT INTO sol_admin(admin_id,username,password_hash,created_at,updated_at) VALUES ('{id}','test','unused-synthetic-password-hash',now(),now())");
+        await fixture.Database.SqlAsync($"INSERT INTO creativeflow_admin(admin_id,username,password_hash,created_at,updated_at) VALUES ('{id}','test','unused-synthetic-password-hash',now(),now())");
         return id;
     }
 }

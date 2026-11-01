@@ -12,4 +12,6 @@ namespace CreativeFlow.Application.Features.Knowledge;
 [JsonSerializable(typeof(KnowledgeQuotas))]
 [JsonSerializable(typeof(KnowledgeRetrievalTrace))]
 [JsonSerializable(typeof(KnowledgeRetrievalSettings))]
+[JsonSerializable(typeof(KnowledgeBaseResponse))]
+[JsonSerializable(typeof(KnowledgeExportManifest))]
 public partial class KnowledgeJsonContext : JsonSerializerContext;

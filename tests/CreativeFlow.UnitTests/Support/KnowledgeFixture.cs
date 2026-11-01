@@ -44,7 +44,13 @@ internal sealed class KnowledgeFixture : IAsyncDisposable
                 INSERT INTO ai_model(model_id,provider_id,model_key,name,type,category) VALUES ('{{fixture.ModelId}}','{{provider}}','synthetic','test','openai-embeddings','embedding');
                 """);
             fixture.Repository = new(fixture.Database.Source, fixture.Quotas);
-            fixture.Library = await fixture.Service.CreateAsync(new("合成手册", "test", fixture.ModelId), TestContext.Current.CancellationToken);
+            if (migrationsThrough is < 47)
+            {
+                var id = Guid.NewGuid();
+                await fixture.Database.SqlAsync($"INSERT INTO knowledge_base(id,name,description,model_id) VALUES ('{id}','合成手册','test','{fixture.ModelId}')");
+                fixture.Library = new(id, "合成手册", "test", fixture.ModelId, true, null);
+            }
+            else fixture.Library = await fixture.Service.CreateAsync(new("合成手册", "test", fixture.ModelId), TestContext.Current.CancellationToken);
             return fixture;
         }
         catch { await fixture.Database.DisposeAsync(); throw; }

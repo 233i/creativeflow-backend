@@ -58,13 +58,14 @@ internal sealed class ImageJobDatabase : IAsyncDisposable
                 }
                 await database.SqlAsync(sql);
             }
-            await database.SqlAsync($$"""
+            var identitySeed = $$"""
                 INSERT INTO creativeflow_account(account_id,display_name) VALUES ('{{database.Account}}','Queue A'), ('{{database.OtherAccount}}','Queue B');
                 INSERT INTO device(device_id,fp_exact,fp_coarse,ip_prefix,signals,sig_version) VALUES
                     ('{{database.Device}}','\x01','\x01','127.0.0.1','{}',1), ('{{database.OtherDevice}}','\x02','\x02','127.0.0.1','{}',1);
                 INSERT INTO creativeflow_account_device(account_id,device_id) VALUES ('{{database.Account}}','{{database.Device}}'), ('{{database.OtherAccount}}','{{database.OtherDevice}}');
                 INSERT INTO canvas(canvas_id,device_id,name) VALUES ('{{database.Canvas}}','{{database.Device}}','Queue test');
-                """);
+                """;
+            await database.SqlAsync(migrationsThrough is < 45 ? identitySeed.Replace("creativeflow_", "sol_", StringComparison.Ordinal) : identitySeed);
             database.Jobs = new(database.Source);
             var options = new AiOptions { AssetRoot = database.FileRoot };
             database.Store = new(database.Source, new AssetFileSystem(options), options, Microsoft.Extensions.Logging.Abstractions.NullLogger<FileSystemAssetStore>.Instance);
@@ -82,6 +83,23 @@ internal sealed class ImageJobDatabase : IAsyncDisposable
     {
         await using var command = Source.CreateCommand(sql);
         await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>历史迁移断言后补齐后续结构，保证当前仓储运行在完整版本而非旧身份表名上。</summary>
+    public async Task ApplyRemainingAsync(int after)
+    {
+        var assembly = typeof(MigrationRunner).Assembly;
+        // 只重映射测试命名空间，冻结资源本身与生产迁移校验和保持不变。
+        foreach (var name in assembly.GetManifestResourceNames().Where(name => name.StartsWith("CreativeFlow.Migrations.", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        {
+            if (int.Parse(name["CreativeFlow.Migrations.".Length..].Split("__", StringSplitOptions.None)[0], System.Globalization.CultureInfo.InvariantCulture) <= after) continue;
+            using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
+            var sql = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+            if (name.EndsWith("0045__creativeflow_namespace.sql", StringComparison.Ordinal))
+                sql = sql.Replace("search_path = public", $"search_path = {schema}", StringComparison.Ordinal)
+                    .Replace("'public'", $"'{schema}'", StringComparison.Ordinal);
+            await SqlAsync(sql);
+        }
     }
 
     /// <summary>读取测试范围内的计数断言。</summary>
