@@ -41,7 +41,6 @@ internal sealed class OpenAiImagesClient(
         ImageGenerationRequest request,
         CancellationToken ct)
     {
-        var client = httpClientFactory.CreateClient("upstream");
         var baseUrl = request.Provider.BaseUrl.TrimEnd('/');
 
         // 提供参考图后会切换到编辑端点，该端点使用多部分表单而非 JSON；
@@ -52,6 +51,14 @@ internal sealed class OpenAiImagesClient(
             ? BuildEditRequest(baseUrl, request)
             : BuildGenerateRequest(baseUrl, request);
 
+        return await SendAsync(message, request, ct);
+    }
+
+    /// <summary>共享图片响应解析与安全下载规则；请求路径和正文由各自协议构造，不在失败后尝试其他端点。</summary>
+    internal async Task<ImageGenerationResult> SendAsync(HttpRequestMessage message, ImageGenerationRequest request, CancellationToken ct)
+    {
+        // 不将 HTTP 失败当作可重试生成；只解析这一次响应，空正文也保留状态和请求路径。
+        var client = httpClientFactory.CreateClient("upstream");
         message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", request.ApiKey);
 
         try
@@ -67,7 +74,9 @@ internal sealed class OpenAiImagesClient(
                     request.ModelKey);
 
                 return ImageGenerationResult.Failure(
-                    (int)response.StatusCode, ExtractError(body));
+                    (int)response.StatusCode,
+                    $"Image API returned HTTP {(int)response.StatusCode} ({message.Method} {message.RequestUri?.AbsolutePath}): "
+                    + (string.IsNullOrWhiteSpace(body) ? "Upstream returned an empty error body." : ExtractError(body)));
             }
 
             var images = await ReadImagesAsync(client, body, request, ct);

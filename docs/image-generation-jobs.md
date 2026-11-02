@@ -56,3 +56,30 @@ not the external workflow's `Idempotency-Key` header. The response exposes
 `failureStage` and `canRetryDownload` so the client can present the correct
 recovery action. Regeneration takes a new key and reuses the original input
 snapshot; editing today's canvas does not change that snapshot.
+
+
+## Seedream / Ark reference images
+
+Use the `seedream-images` model override for native Ark Seedream models. Keep the
+configured base URL (including `/api/plan/v3` when using that service); a full
+`/images/generations` suffix is normalized once. Text generation and reference
+image generation both use JSON `POST /images/generations`. Authorized reference
+assets are read by the server and included as `image` data URLs, never as private
+CreativeFlow URLs or multipart `/images/edits` files.
+
+Migration `0048` enables the protocol and assigns it only to identifiable native
+Ark `doubao-seedream-*` image models with no explicit protocol override. Relay
+hosts, explicit overrides, secrets, base URLs, published snapshots and existing
+jobs are retained. Aliased endpoint IDs and relay models can select the protocol
+manually in the model settings. Existing failed jobs are not automatically rerun.
+
+Pro/Flash accept PNG/JPEG output. Their quality and random seed controls are hidden;
+legacy values are not forwarded. The canvas and media workflow use legal 2K sizes
+for their aspect controls. Multiple requested pictures use sequential single-image
+requests, stop on failure and retain completed outputs; this is not an automatic
+retry. Empty prompts, missing authorized reference assets, masks and unsupported
+formats fail before a generation request. HTTP failures include the upstream
+status and route even when the upstream returns an empty response body.
+
+The original OpenAI image protocol continues to use multipart `/images/edits`
+for reference images. Generation is never retried by switching protocols.

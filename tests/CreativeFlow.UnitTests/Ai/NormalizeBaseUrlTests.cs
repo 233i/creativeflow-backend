@@ -49,6 +49,13 @@ public class NormalizeBaseUrlTests
             AiProvider.NormalizeBaseUrl("https://api.openai.com/v1", protocol));
     }
 
+    /// <summary>Seedream 保留套餐版本，只移除重复操作路径。</summary>
+    [Theory]
+    [InlineData("https://ark.cn-beijing.volces.com/api/plan/v3/images/generations/", "https://ark.cn-beijing.volces.com/api/plan/v3")]
+    [InlineData("https://ark.cn-beijing.volces.com/api/v3", "https://ark.cn-beijing.volces.com/api/v3")]
+    public void SeedreamKeepsVersionAndPlan(string input, string expected) =>
+        Assert.Equal(expected, AiProvider.NormalizeBaseUrl(input, ProviderType.SeedreamImages));
+
     /// <summary>回归场景：Trims Whitespace And Trailing Slashes。</summary>
     [Fact]
     public void TrimsWhitespaceAndTrailingSlashes()

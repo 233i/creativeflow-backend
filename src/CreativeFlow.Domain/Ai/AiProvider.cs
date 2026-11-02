@@ -166,7 +166,7 @@ public sealed record AiProvider(
         return model.Category switch
         {
             ModelCategory.Rerank => ProviderType.Rerank,
-            ModelCategory.Image when Type is ProviderType.OpenAiImages or ProviderType.Gemini => Type,
+            ModelCategory.Image when Type is ProviderType.OpenAiImages or ProviderType.SeedreamImages or ProviderType.Gemini => Type,
             ModelCategory.Image => ProviderType.OpenAiImages,
             ModelCategory.Video when Type is ProviderType.OpenAiVideo
                 or ProviderType.MiniMaxVideo
@@ -201,6 +201,9 @@ public sealed record AiProvider(
 
             // 客户端会追加 /v1beta/models/...，兼容 OpenAI 的后缀会导致地址错误。
             ProviderType.Gemini => StripSuffix(trimmed, "/openai"),
+
+            // 保留普通及套餐版本前缀，只移除用户粘贴的完整图片操作路径。
+            ProviderType.SeedreamImages => StripSuffix(trimmed, "/images/generations"),
 
             // H3 原生客户端自行追加 /v2，兼容粘贴根地址、版本地址或完整提交地址。
             ProviderType.MiniMaxH3 => StripSuffix(

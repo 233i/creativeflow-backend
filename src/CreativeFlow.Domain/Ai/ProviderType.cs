@@ -20,6 +20,8 @@ public enum ProviderType
     Gemini,
     /// <summary>OpenAI 图片生成与编辑协议。</summary>
     OpenAiImages,
+    /// <summary>火山 Seedream JSON 图片生成及参考图协议。</summary>
+    SeedreamImages,
     /// <summary>OpenAI 兼容视频任务协议。</summary>
     OpenAiVideo,
     /// <summary>MiniMax 视频协议。</summary>
@@ -83,6 +85,7 @@ public static class AiEnumNames
         ProviderType.Anthropic => "anthropic",
         ProviderType.Gemini => "gemini",
         ProviderType.OpenAiImages => "openai-images",
+        ProviderType.SeedreamImages => "seedream-images",
         ProviderType.OpenAiVideo => "openai-video",
         ProviderType.MiniMaxVideo => "minimax-video",
         ProviderType.MiniMaxH3 => "minimax-h3",
@@ -103,6 +106,7 @@ public static class AiEnumNames
             case "anthropic": value = ProviderType.Anthropic; return true;
             case "gemini": value = ProviderType.Gemini; return true;
             case "openai-images": value = ProviderType.OpenAiImages; return true;
+            case "seedream-images": value = ProviderType.SeedreamImages; return true;
             case "openai-video": value = ProviderType.OpenAiVideo; return true;
             case "minimax-video": value = ProviderType.MiniMaxVideo; return true;
             case "minimax-h3": value = ProviderType.MiniMaxH3; return true;

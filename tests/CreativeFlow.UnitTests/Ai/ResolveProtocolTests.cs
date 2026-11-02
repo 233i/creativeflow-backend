@@ -114,6 +114,7 @@ public class ResolveProtocolTests
     /// <summary>回归场景：An Image Model Inherits A Compatible Provider Protocol。</summary>
     [Theory]
     [InlineData(ProviderType.OpenAiImages)]
+    [InlineData(ProviderType.SeedreamImages)]
     [InlineData(ProviderType.Gemini)]
     public void AnImageModelInheritsACompatibleProviderProtocol(ProviderType providerType)
     {

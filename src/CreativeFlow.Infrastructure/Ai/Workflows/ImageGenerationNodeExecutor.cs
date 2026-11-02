@@ -1,3 +1,4 @@
+using CreativeFlow.Infrastructure.Ai.Protocols;
 using CreativeFlow.Application.Abstractions.Ai;
 using CreativeFlow.Application.Abstractions.Persistence;
 using CreativeFlow.Application.Features.Workflow;
@@ -37,8 +38,11 @@ internal sealed class ImageGenerationNodeExecutor(
         var count = Math.Clamp(ReadInt(node.Data, "count") ?? 1, 1, 4);
         var aspect = ReadString(node.Data, "aspect");
 
+        var protocol = managed.Provider.ResolveProtocol(managed.Model);
+        if (protocol == ProviderType.SeedreamImages && references.Count != input.Images.Count)
+            throw new WorkflowExecutionException("Seedream 参考图无法完整读取或超过 8 张，未发起图片生成。");
         var result = await dispatcher.GenerateAsync(
-            managed.Provider.ResolveProtocol(managed.Model),
+            protocol,
             new ImageGenerationRequest(
                 managed.Provider,
                 managed.ApiKey,
@@ -46,7 +50,7 @@ internal sealed class ImageGenerationNodeExecutor(
                 string.Join("\n", input.Texts),
                 references,
                 null,
-                SizeFor(aspect),
+                protocol == ProviderType.SeedreamImages ? SeedreamImagesClient.SizeForAspect(aspect) : SizeFor(aspect),
                 NullIfEmpty(ReadString(node.Data, "quality")),
                 NullIfEmpty(ReadString(node.Data, "outputFormat")),
                 settings.ResponseFormat,

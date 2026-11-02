@@ -101,7 +101,9 @@ public sealed record ImageGenerationResult(
 
     /// <summary>构造失败结果并保留上游状态与错误详情。</summary>
     public static ImageGenerationResult Failure(int? statusCode, string error) =>
-        new(false, [], statusCode, error);
+        new(false, [], statusCode, string.IsNullOrWhiteSpace(error)
+            ? statusCode is { } code ? $"Image API returned HTTP {code} with an empty error body." : "Image generation failed without error details."
+            : error);
 }
 
 /// <summary>将请求路由到支持解析后协议的客户端。</summary>

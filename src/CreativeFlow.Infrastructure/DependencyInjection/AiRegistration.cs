@@ -60,7 +60,9 @@ public static partial class DependencyInjection
 
         // 每种协议对应一个客户端。分派器按 ProviderType 建立索引，
         // 因此新增供应商只需在此注册，无需修改分支语句。
-        services.AddSingleton<IImageGenerationClient, OpenAiImagesClient>();
+        services.AddSingleton<OpenAiImagesClient>();
+        services.AddSingleton<IImageGenerationClient>(services => services.GetRequiredService<OpenAiImagesClient>());
+        services.AddSingleton<IImageGenerationClient, SeedreamImagesClient>();
         services.AddSingleton<IImageGenerationClient, GeminiImagesClient>();
         services.AddSingleton<IImageGenerationDispatcher, ImageGenerationDispatcher>();
 

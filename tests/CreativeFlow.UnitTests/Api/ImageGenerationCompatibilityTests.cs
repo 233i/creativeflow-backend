@@ -221,6 +221,36 @@ public sealed class ImageGenerationCompatibilityTests
         Assert.Empty(fixture.Assets.Inserted);
     }
 
+    /// <summary>Seedream 参考素材仍按当前账号读取，丢失或越权图片不能静默变为文生图。</summary>
+    [Theory]
+    [InlineData(true)][InlineData(false)]
+    public async Task SeedreamPreservesReferencesAndRejectsUnavailableInputs(bool available)
+    {
+        await using var fixture = await ImageGenerationHttpFixture.CreateAsync();
+        var provider = fixture.Providers.Provider!;
+        fixture.Providers.Provider = provider with { Models = [provider.Models[0] with { Type = ProviderType.SeedreamImages }] };
+        var reference = available ? fixture.AddReference() : $"/api/v1/canvas/assets/{Guid.NewGuid()}";
+        using var response = await fixture.PostAsync(fixture.Request() with { Images = [reference], OutputFormat = "png" });
+        Assert.Equal(available ? HttpStatusCode.OK : HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(available ? 1 : 0, fixture.Images.Calls);
+        if (available)
+        {
+            Assert.Equal(ProviderType.SeedreamImages, fixture.Images.Protocol);
+            Assert.Equal(new byte[] { 1, 2, 3 }, Assert.Single(fixture.Images.Request!.ReferenceImages).Bytes);
+        }
+    }
+
+    /// <summary>空上游错误正文仍在公开错误文本中保留状态码，不改变原 HTTP 映射或写素材。</summary>
+    [Fact]
+    public async Task EmptyUpstreamErrorStillExplainsThe404()
+    {
+        await using var fixture = await ImageGenerationHttpFixture.CreateAsync();
+        fixture.Images.Result = ImageGenerationResult.Failure(404, "");
+        using var response = await fixture.PostAsync(fixture.Request());
+        await AssertInvalidAsync(response, "Image API returned HTTP 404 with an empty error body.");
+        Assert.Equal(1, fixture.Images.Calls); Assert.Empty(fixture.Assets.Inserted);
+    }
+
     /// <summary>无效 JSON 仍由 MVC 在业务入口之前返回绑定错误。</summary>
     [Fact]
     public async Task MalformedJsonStillUsesMvcBinding()

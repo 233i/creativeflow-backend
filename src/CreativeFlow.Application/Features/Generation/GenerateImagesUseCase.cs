@@ -88,6 +88,8 @@ public sealed class GenerateImagesUseCase(
             return GenerateImagesResult.Invalid(keyError);
         }
 
+        var protocol = provider.ResolveProtocol(model);
+
         // 参考图以素材 URL 指定；在此解析可避免客户端再次上传相同字节。
         var references = new List<ReferenceImage>();
         if (request.Images is { Length: > 0 } imageUrls)
@@ -104,12 +106,14 @@ public sealed class GenerateImagesUseCase(
                 {
                     references.Add(reference);
                 }
+                else if (protocol == ProviderType.SeedreamImages)
+                {
+                    return GenerateImagesResult.Invalid("Seedream 参考图不存在、已移除或无权读取，未发起图片生成。");
+                }
                 // 无法解析的参考图会被跳过，而不会使运行失败：通常是节点图片从未上传，
                 // 仅根据提示词生成比直接报错更有用。
             }
         }
-
-        var protocol = provider.ResolveProtocol(model);
 
         ReferenceImage? mask = null;
         if (!string.IsNullOrWhiteSpace(request.MaskUrl))

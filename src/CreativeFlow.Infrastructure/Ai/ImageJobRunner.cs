@@ -62,7 +62,7 @@ public sealed class ImageJobRunner(GenerateImagesUseCase generate, IImageJobRepo
                 }, ct);
             if (result.Status != GenerateImagesStatus.Succeeded)
             {
-                await jobs.FinishAsync(job, (result.Error ?? "图片生成未完成。") + " 系统未自动重新生成；如上游已受理，请先核实结果。", ct);
+                await jobs.FinishAsync(job, (string.IsNullOrWhiteSpace(result.Error) ? "图片生成未完成。" : result.Error) + " 系统未自动重新生成；如上游已受理，请先核实结果。", ct);
                 return;
             }
         }
