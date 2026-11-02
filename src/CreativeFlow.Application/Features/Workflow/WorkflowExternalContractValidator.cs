@@ -110,6 +110,9 @@ public static partial class WorkflowExternalContractValidator
             [("imageGenerate", "count")] = new("integer", 1, 4),
             [("imageGenerate", "quality")] = new("enum", Values: Set(
                 "auto", "low", "medium", "high")),
+            [("imageGenerate", "resolution")] = new("enum", Values: Set(
+                "1K", "1.5K", "2K", "3K", "4K")),
+            [("imageGenerate", "promptOptimizeMode")] = new("enum", Values: Set("standard", "fast")),
             [("imageGenerate", "outputFormat")] = new("enum", Values: Set(
                 "png", "jpeg", "webp")),
             [("imageGenerate", "seed")] = new("integer", int.MinValue, int.MaxValue),

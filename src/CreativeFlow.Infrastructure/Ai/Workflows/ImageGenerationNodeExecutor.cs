@@ -1,4 +1,3 @@
-using CreativeFlow.Infrastructure.Ai.Protocols;
 using CreativeFlow.Application.Abstractions.Ai;
 using CreativeFlow.Application.Abstractions.Persistence;
 using CreativeFlow.Application.Features.Workflow;
@@ -50,12 +49,13 @@ internal sealed class ImageGenerationNodeExecutor(
                 string.Join("\n", input.Texts),
                 references,
                 null,
-                protocol == ProviderType.SeedreamImages ? SeedreamImagesClient.SizeForAspect(aspect) : SizeFor(aspect),
+                protocol == ProviderType.SeedreamImages ? SeedreamSize(node.Data, managed.Model.ModelKey, aspect) : SizeFor(aspect),
                 NullIfEmpty(ReadString(node.Data, "quality")),
                 NullIfEmpty(ReadString(node.Data, "outputFormat")),
                 settings.ResponseFormat,
                 count,
-                ReadInt(node.Data, "seed"), DeferDownloads: true),
+                ReadInt(node.Data, "seed"), DeferDownloads: true)
+            { PromptOptimizeMode = protocol == ProviderType.SeedreamImages ? NullIfEmpty(ReadString(node.Data, "promptOptimizeMode")) : null },
             ct);
 
         if (!result.Ok)
@@ -93,5 +93,17 @@ internal sealed class ImageGenerationNodeExecutor(
         }
 
         return new WorkflowNodeValue([], urls, []);
+    }
+
+    /// <summary>外部 API 和已保存图同样校验型号支持的档位，避免把无效配置静默变成 2K。</summary>
+    private static string SeedreamSize(System.Text.Json.Nodes.JsonObject data, string model, string aspect)
+    {
+        var resolution = NullIfEmpty(ReadString(data, "resolution"));
+        if (resolution is not null && !SeedreamImageOptions.Resolutions(model).Contains(resolution))
+            throw new WorkflowExecutionException("当前 Seedream 模型不支持所选分辨率。");
+        var size = SeedreamImageOptions.SizeForAspect(aspect, resolution);
+        if (SeedreamImageOptions.Validate(model, size, NullIfEmpty(ReadString(data, "promptOptimizeMode"))) is { } error)
+            throw new WorkflowExecutionException(error);
+        return size;
     }
 }

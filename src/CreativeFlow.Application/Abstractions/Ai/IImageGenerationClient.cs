@@ -57,7 +57,11 @@ public sealed record ImageGenerationRequest(
     string? ResponseFormat,
     int Count,
     int? Seed,
-    bool DeferDownloads = false);
+    bool DeferDownloads = false)
+{
+    /// <summary>Seedream 提示词优化模式：standard 或 fast；其他图片协议忽略该专用选项。</summary>
+    public string? PromptOptimizeMode { get; init; }
+}
 
 /// <param name="Url">
 /// 对拒绝内联数据的协议，优先使用此公开 HTTP(S) 来源。多部分表单和数据 URL 协议仍可使用字节内容。

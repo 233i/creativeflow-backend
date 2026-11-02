@@ -6,6 +6,7 @@ using CreativeFlow.Application.Abstractions.Persistence;
 using CreativeFlow.Application.Contracts.Ai;
 using CreativeFlow.Application.Features.Generation;
 using CreativeFlow.Application.Features.Identity;
+using CreativeFlow.Domain.Ai;
 using CreativeFlow.Infrastructure.Ai;
 using CreativeFlow.Infrastructure.Persistence;
 using CreativeFlow.UnitTests.Support;
@@ -102,6 +103,31 @@ public sealed class ImageJobHttpTests
         await runner.RunAsync((await db.Jobs.ClaimAsync(new(), Ct))!, Ct);
         Assert.Equal(2, fixture.Images.Calls);
         Assert.Equal(2, await db.CountAsync("SELECT count(*) FROM canvas_asset"));
+    }
+
+    /// <summary>原生尺寸和优化模式贯穿入队、查询、执行与显式重新生成，不读取编辑后的画布。</summary>
+    [Fact(Skip = "需要隔离测试库 CREATIVEFLOW_TEST_POSTGRES", SkipWhen = nameof(NoDatabase))]
+    public async Task SeedreamOptionsPersistThroughQueueAndExplicitRegeneration()
+    {
+        await using var db = await ImageJobDatabase.CreateAsync();
+        await using var fixture = await ImageGenerationHttpFixture.CreateAsync(database: db);
+        var provider = fixture.Providers.Provider!;
+        const string model = "doubao-seedream-5.0-pro";
+        fixture.Providers.Provider = provider with { Models = [provider.Models[0] with { Type = ProviderType.SeedreamImages, ModelKey = model }] };
+        var input = fixture.Request() with { ModelKey = model, Size = "2112x1188", PromptOptimizeMode = "fast" };
+        using var response = await fixture.Client.PostAsJsonAsync(Root, new SubmitImageJobRequest(Guid.NewGuid(), input), Ct);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var accepted = (await response.Content.ReadFromJsonAsync<ImageJobResponse>(Ct))!;
+        Assert.Equal("fast", accepted.Input.PromptOptimizeMode);
+        var runner = Runner(db, fixture, new DownloadStub());
+        await runner.RunAsync((await db.Jobs.ClaimAsync(new(), Ct))!, Ct);
+        var done = (await fixture.Client.GetFromJsonAsync<ImageJobResponse>($"{Root}/{accepted.JobId}", Ct))!;
+        Assert.Equal("succeeded", done.Status); Assert.Equal(input.Size, done.Input.Size);
+        using var repeated = await fixture.Client.PostAsJsonAsync($"{Root}/{accepted.JobId}/regenerate", new RegenerateImageJobRequest(Guid.NewGuid()), Ct);
+        var next = (await repeated.Content.ReadFromJsonAsync<ImageJobResponse>(Ct))!;
+        Assert.Equal(input.Size, next.Input.Size); Assert.Equal("fast", next.Input.PromptOptimizeMode);
+        await runner.RunAsync((await db.Jobs.ClaimAsync(new(), Ct))!, Ct);
+        Assert.Equal(2, fixture.Images.Calls); Assert.Equal("fast", fixture.Images.Request!.PromptOptimizeMode);
     }
 
     /// <summary>验证未知产物不能下载恢复，其他账号及匿名请求不能访问。</summary>

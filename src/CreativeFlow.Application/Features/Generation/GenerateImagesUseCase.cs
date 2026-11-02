@@ -89,6 +89,9 @@ public sealed class GenerateImagesUseCase(
         }
 
         var protocol = provider.ResolveProtocol(model);
+        if (protocol == ProviderType.SeedreamImages
+            && SeedreamImageOptions.Validate(request.ModelKey, request.Size, request.PromptOptimizeMode) is { } optionError)
+            return GenerateImagesResult.Invalid(optionError);
 
         // 参考图以素材 URL 指定；在此解析可避免客户端再次上传相同字节。
         var references = new List<ReferenceImage>();
@@ -162,7 +165,7 @@ public sealed class GenerateImagesUseCase(
                 policy.ResponseFormat,
                 count,
                 request.Seed,
-                DeferDownloads: true),
+                DeferDownloads: true) { PromptOptimizeMode = request.PromptOptimizeMode },
             ct);
 
         if (!result.Ok)

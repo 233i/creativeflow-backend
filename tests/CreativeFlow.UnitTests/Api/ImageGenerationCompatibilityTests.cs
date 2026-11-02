@@ -230,7 +230,7 @@ public sealed class ImageGenerationCompatibilityTests
         var provider = fixture.Providers.Provider!;
         fixture.Providers.Provider = provider with { Models = [provider.Models[0] with { Type = ProviderType.SeedreamImages }] };
         var reference = available ? fixture.AddReference() : $"/api/v1/canvas/assets/{Guid.NewGuid()}";
-        using var response = await fixture.PostAsync(fixture.Request() with { Images = [reference], OutputFormat = "png" });
+        using var response = await fixture.PostAsync(fixture.Request() with { Images = [reference], OutputFormat = "png", Size = "2048x2048" });
         Assert.Equal(available ? HttpStatusCode.OK : HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(available ? 1 : 0, fixture.Images.Calls);
         if (available)
@@ -238,6 +238,26 @@ public sealed class ImageGenerationCompatibilityTests
             Assert.Equal(ProviderType.SeedreamImages, fixture.Images.Protocol);
             Assert.Equal(new byte[] { 1, 2, 3 }, Assert.Single(fixture.Images.Request!.ReferenceImages).Bytes);
         }
+    }
+
+    /// <summary>生产 JSON 绑定和任务快照序列化都保留新的原生模式字段。</summary>
+    [Fact]
+    public async Task SeedreamModeSurvivesHttpAndSavedRequest()
+    {
+        await using var fixture = await ImageGenerationHttpFixture.CreateAsync();
+        var provider = fixture.Providers.Provider!;
+        const string key = "doubao-seedream-5.0-pro";
+        fixture.Providers.Provider = provider with { Models = [provider.Models[0] with { Type = ProviderType.SeedreamImages, ModelKey = key }] };
+        var input = fixture.Request() with { ModelKey = key, Size = "2112x1188", PromptOptimizeMode = "fast" };
+        using var response = await fixture.PostAsync(input);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("fast", fixture.Images.Request!.PromptOptimizeMode);
+        Assert.Equal("2112x1188", fixture.Images.Request.Size);
+        var saved = CreativeFlow.Application.Features.Generation.ImageJobService.Deserialize(
+            System.Text.Json.JsonSerializer.Serialize(input, CreativeFlow.Api.Serialization.ApiJsonContext.Default.GenerateImageRequest));
+        Assert.Equal("fast", saved.PromptOptimizeMode); Assert.Equal(input.Size, saved.Size);
+        Assert.DoesNotContain("promptOptimizeMode", System.Text.Json.JsonSerializer.Serialize(
+            input with { PromptOptimizeMode = null }, CreativeFlow.Api.Serialization.ApiJsonContext.Default.GenerateImageRequest));
     }
 
     /// <summary>空上游错误正文仍在公开错误文本中保留状态码，不改变原 HTTP 映射或写素材。</summary>

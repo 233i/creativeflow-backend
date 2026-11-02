@@ -38,6 +38,8 @@ internal sealed class SeedreamImagesClient(OpenAiImagesClient transport) : IImag
             ["response_format"] = OpenAiImagesClient.ResolveResponseFormat(request.ResponseFormat),
         };
         if (!string.IsNullOrWhiteSpace(request.Size)) body["size"] = request.Size;
+        if (request.PromptOptimizeMode is { } mode)
+            body["optimize_prompt_options"] = new JsonObject { ["mode"] = mode };
         if (SupportsOutputFormat(request.ModelKey))
             body["output_format"] = OpenAiImagesClient.ResolveOutputFormat(request.OutputFormat);
         if (request.ReferenceImages.Count > 0)
@@ -57,17 +59,11 @@ internal sealed class SeedreamImagesClient(OpenAiImagesClient transport) : IImag
         model.Replace('.', '-').Contains("seedream-5-0-pro", StringComparison.OrdinalIgnoreCase)
         || model.Replace('.', '-').Contains("seedream-5-0-flash", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>使用 2K 合法尺寸保留完整宽高比，适用于 Pro/Flash、Lite 和 4.x 的共同像素区间。</summary>
-    internal static string SizeForAspect(string aspect) => aspect switch
-    {
-        "16:9" => "2816x1584", "9:16" => "1584x2816",
-        "4:3" => "2304x1728", "3:4" => "1728x2304",
-        "3:2" => "2496x1664", "2:3" => "1664x2496", _ => "2048x2048",
-    };
-
     /// <summary>不适用的图片输入在发出任何收费请求前失败；不修改素材权限或自动忽略参考图。</summary>
     private static string? Validate(ImageGenerationRequest request)
     {
+        if (SeedreamImageOptions.Validate(request.ModelKey, request.Size, request.PromptOptimizeMode) is { } optionError)
+            return optionError;
         if (string.IsNullOrWhiteSpace(request.Prompt)) return "Seedream 图片生成需要填写提示词。";
         if (request.Mask is not null) return "Seedream 图片协议不支持 OpenAI 蒙版，请使用参考图和提示词描述编辑位置。";
         if (request.Count is < 1 or > 4) return "Seedream 单次任务支持生成 1–4 张图片。";

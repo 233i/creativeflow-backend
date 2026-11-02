@@ -179,6 +179,27 @@ public sealed class WorkflowExternalContractValidatorTests
             new JsonObject { ["aspect"] = "1:1", ["count"] = 5 }, new Dictionary<string, string>()).IsValid);
     }
 
+    /// <summary>新原生字段可发布为受枚举约束的外部输入，绑定仅改变运行副本。</summary>
+    [Theory]
+    [InlineData("resolution", "1.5K", "8K")]
+    [InlineData("promptOptimizeMode", "fast", "turbo")]
+    public void NativeImageFieldsCanBePublishedAndBound(string field, string value, string invalid)
+    {
+        var graph = Graph();
+        graph["externalApi"]!["inputs"]!.AsArray().Add(new JsonObject
+        {
+            ["key"] = "setting", ["label"] = field, ["type"] = "enum", ["required"] = true,
+            ["target"] = new JsonObject { ["nodeId"] = "generate", ["field"] = field },
+        });
+        var valid = WorkflowExternalContractValidator.Bind(graph.ToJsonString(),
+            new JsonObject { ["prompt"] = "tree", ["setting"] = value }, new Dictionary<string, string>());
+        Assert.True(valid.IsValid);
+        Assert.Equal(value, JsonNode.Parse(valid.GraphJson!)!["nodes"]![1]!["data"]![field]!.GetValue<string>());
+        Assert.Null(graph["nodes"]![1]!["data"]![field]);
+        Assert.False(WorkflowExternalContractValidator.Bind(graph.ToJsonString(),
+            new JsonObject { ["prompt"] = "tree", ["setting"] = invalid }, new Dictionary<string, string>()).IsValid);
+    }
+
     /// <summary>回归场景：Graph。</summary>
     private static JsonObject Graph() => JsonNode.Parse(
         """

@@ -60,6 +60,48 @@ public sealed class SeedreamImagesTests
         Assert.Equal(3, result.Images.Count); Assert.Equal(3, success.Requests.Count);
     }
 
+    /// <summary>原生请求使用实际分辨率与嵌套模式，不能把模式混入 quality 字段。</summary>
+    [Theory]
+    [InlineData("standard")][InlineData("fast")]
+    public async Task NativeResolutionAndModeAreSentToTheProvider(string mode)
+    {
+        var handler = new Handler();
+        var request = Request() with { Size = "2112x1188", PromptOptimizeMode = mode };
+        Assert.True((await Client(handler).GenerateAsync(request, TestContext.Current.CancellationToken)).Ok);
+        var body = JsonNode.Parse(Assert.Single(handler.Requests).Body)!;
+        Assert.Equal("2112x1188", body["size"]!.GetValue<string>());
+        Assert.Equal(mode, body["optimize_prompt_options"]!["mode"]!.GetValue<string>());
+        Assert.Null(body["quality"]);
+        var rejected = new Handler();
+        Assert.False((await Client(rejected).GenerateAsync(request with { ModelKey = "doubao-seedream-5.0-flash", PromptOptimizeMode = "fast" }, TestContext.Current.CancellationToken)).Ok);
+        Assert.Empty(rejected.Requests);
+    }
+
+    /// <summary>即使节点保留 Seedream 设置，OpenAI 的原请求字段和编辑端点也保持不变。</summary>
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task OpenAiOptionsRemainUnchanged(bool edit)
+    {
+        var handler = new Handler();
+        var request = Request() with { ModelKey = "gpt-image-2", PromptOptimizeMode = "fast", OutputFormat = "webp",
+            ReferenceImages = edit ? [new([1, 2], "image/png")] : [] };
+        Assert.True((await Transport(handler).GenerateAsync(request, TestContext.Current.CancellationToken)).Ok);
+        var sent = Assert.Single(handler.Requests);
+        Assert.DoesNotContain("optimize_prompt_options", sent.Body);
+        if (edit)
+        {
+            Assert.EndsWith("/images/edits", sent.Url);
+            Assert.Contains("name=quality", sent.Body); Assert.Contains("high", sent.Body); Assert.Contains("webp", sent.Body);
+        }
+        else
+        {
+            var body = JsonNode.Parse(sent.Body)!;
+            Assert.Equal("high", body["quality"]!.GetValue<string>());
+            Assert.Equal("webp", body["output_format"]!.GetValue<string>());
+            Assert.Equal(1, body["n"]!.GetValue<int>()); Assert.Equal(42, body["seed"]!.GetValue<int>());
+        }
+    }
+
     /// <summary>空提示词、空图片、蒙版及不支持编码在发请求前失败。</summary>
     [Theory]
     [InlineData("prompt")][InlineData("reference")][InlineData("mask")][InlineData("format")]

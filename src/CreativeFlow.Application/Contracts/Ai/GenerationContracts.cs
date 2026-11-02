@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace CreativeFlow.Application.Contracts.Ai;
 
 /// <param name="Images">
@@ -31,6 +33,9 @@ public sealed record GenerateImageRequest(
     public string? CanvasId { get; init; }
     /// <summary>发起生成的画布节点，仅用于记录定位。</summary>
     public string? NodeId { get; init; }
+    /// <summary>Seedream 专用提示词优化模式：standard 或 fast，随图片任务输入保存。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PromptOptimizeMode { get; init; }
 }
 
 /// <summary>管理员控制的上游图片响应策略所接受的传输值。</summary>

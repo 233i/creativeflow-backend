@@ -77,6 +77,34 @@ public sealed class WorkflowMediaNodeExecutorTests
         Assert.Equal("image-model-alternate", Assert.IsType<ImageGenerationRequest>(fixture.ImageRequest).ModelKey);
     }
 
+    /// <summary>媒体工作流把发布图上的 Seedream 档位、比例与优化模式传给图片适配器。</summary>
+    [Fact]
+    public async Task SeedreamUsesSelectedResolutionAndMode()
+    {
+        var fixture = new Fixture("doubao-seedream-5.0-pro", ProviderType.SeedreamImages);
+        var context = fixture.Inputs("imageGenerate", WorkflowNodeValue.FromText("prompt"));
+        context.Node.Data["aspect"] = "9:16";
+        context.Node.Data["resolution"] = "1.5K";
+        context.Node.Data["promptOptimizeMode"] = "fast";
+        await fixture.ExecuteAsync(context);
+        Assert.Equal("1188x2112", fixture.ImageRequest!.Size);
+        Assert.Equal("fast", fixture.ImageRequest.PromptOptimizeMode);
+    }
+
+    /// <summary>外部输入和旧图不能向不支持的型号发送档位或模式，也不应创建输出素材。</summary>
+    [Theory]
+    [InlineData("doubao-seedream-5.0-pro", "4K", "standard")]
+    [InlineData("doubao-seedream-5.0-flash", "2K", "fast")]
+    public async Task InvalidSeedreamSettingsNeverDispatch(string model, string resolution, string mode)
+    {
+        var fixture = new Fixture(model, ProviderType.SeedreamImages);
+        var context = fixture.Inputs("imageGenerate", WorkflowNodeValue.FromText("prompt"));
+        context.Node.Data["resolution"] = resolution;
+        context.Node.Data["promptOptimizeMode"] = mode;
+        await Assert.ThrowsAsync<WorkflowExecutionException>(() => fixture.ExecuteAsync(context));
+        Assert.Equal(0, fixture.ImageCalls); Assert.Empty(fixture.WrittenAssets);
+    }
+
     /// <summary>生成后取消不再保存素材；上游失败同样不能写入结果或自动重试。</summary>
     [Theory]
     [InlineData(true)]
@@ -259,12 +287,12 @@ public sealed class WorkflowMediaNodeExecutorTests
         public ModelId AlternateImageModelId { get; }
 
         /// <summary>显式构造严格替身；任何未声明调用均使测试失败，不使用本机配置或网络。</summary>
-        public Fixture()
+        public Fixture(string imageModelKey = "image-model", ProviderType imageProtocol = ProviderType.OpenAiImages)
         {
             // 所有外部端口只响应明确列出的操作。恢复测试若误提交上游、或执行器多做一次查询，会立即暴露。
             var id = ProviderId.New();
             ProviderId = id;
-            var imageModel = Model(id, "image-model", ModelCategory.Image, ProviderType.OpenAiImages);
+            var imageModel = Model(id, imageModelKey, ModelCategory.Image, imageProtocol);
             var alternateImage = Model(id, "image-model-alternate", ModelCategory.Image, ProviderType.OpenAiImages);
             AlternateImageModelId = alternateImage.Id;
             var videoModel = Model(id, "video-model", ModelCategory.Video, ProviderType.SeedanceVideo);

@@ -74,8 +74,23 @@ jobs are retained. Aliased endpoint IDs and relay models can select the protocol
 manually in the model settings. Existing failed jobs are not automatically rerun.
 
 Pro/Flash accept PNG/JPEG output. Their quality and random seed controls are hidden;
-legacy values are not forwarded. The canvas and media workflow use legal 2K sizes
-for their aspect controls. Multiple requested pictures use sequential single-image
+legacy values are not forwarded. Native controls expose the selected model's
+resolution tiers (Pro/Flash: 1K, 1.5K, 2K; Lite: 2K, 3K, 4K; 4.5: 2K, 4K;
+4.0: 1K, 2K, 4K). The default remains 2K. Resolution and aspect jointly determine
+the actual pixel `size`, retaining the aspect and model pixel limits. Unknown
+endpoint aliases expose the common 2K tier only. Explicit canvas sizes retain
+precedence until the user changes the native resolution or aspect.
+
+`promptOptimizeMode` is a Seedream-only image input (`standard` / `fast`) and maps
+to `optimize_prompt_options.mode`. Fast mode is offered only for Pro and 4.0.
+Drafts, queued job snapshots, explicit regeneration and published media workflows
+retain the options. Media API publications can expose `resolution` and
+`promptOptimizeMode` as enum inputs. Model-specific validation also runs on the
+server before generation; unsupported tiers/modes are rejected. OpenAI's
+quality, formats, count, size and edit request behavior remain unchanged, and its
+adapter does not forward the native optimization field.
+
+Multiple requested pictures use sequential single-image
 requests, stop on failure and retain completed outputs; this is not an automatic
 retry. Empty prompts, missing authorized reference assets, masks and unsupported
 formats fail before a generation request. HTTP failures include the upstream

@@ -35,6 +35,9 @@ public sealed class ImageJobService(IImageJobRepository jobs, IProviderRepositor
         var model = provider?.Models.FirstOrDefault(candidate => candidate.ModelKey == input.ModelKey);
         if (provider?.Enabled != true || model?.Enabled != true || model.Category != ModelCategory.Image)
             throw new ArgumentException("所选图片服务商或模型不可用，请检查配置。");
+        if (provider.ResolveProtocol(model) == ProviderType.SeedreamImages
+            && SeedreamImageOptions.Validate(model.ModelKey, input.Size, input.PromptOptimizeMode) is { } optionError)
+            throw new ArgumentException(optionError);
         return await jobs.SubmitAsync(new(accountId, deviceId, request.Key, providerId.Value,
             Guid.TryParse(input.CanvasId, out var canvas) ? canvas : null, input.NodeId, json, hash,
             ForceNew: regenerateFrom.HasValue), limits, ct);
