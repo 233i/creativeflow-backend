@@ -357,7 +357,7 @@ public sealed class WorkflowMediaNodeExecutorTests
             var awaiter = new WorkflowVideoJobAwaiter(videoJobs, runs, this);
             var imageInput = new ImageInputNodeExecutor(assets);
             var downloader = Create<IImageOutputDownloader>((_, _) => throw new InvalidOperationException("Unexpected download"));
-            var image = new ImageGenerationNodeExecutor(resolver, reader, settings, imageDispatcher, assetStore, assets, runs, downloader);
+            var image = new ImageGenerationNodeExecutor(resolver, reader, settings, imageDispatcher, assetStore, assets, runs, downloader, this);
             var video = new VideoGenerationNodeExecutor(videoJobs, resolver, reader, videoDispatcher, awaiter);
             var extension = new VideoExtensionNodeExecutor(videoJobs, resolver, reader, videoDispatcher, awaiter);
             var frame = new VideoFrameNodeExecutor(frames);

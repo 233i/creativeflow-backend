@@ -34,9 +34,9 @@ internal sealed class WorkflowProgressPublisher(IRealtimeNotifier realtime)
                     nodeStatus,
                     progress,
                     // 含授权资源的运行只推送进度；正文走即时鉴权 HTTP 读取，避免长连接撤权后泄漏。
-                    (run.TriggerType == WorkflowRunTriggerType.Api && WorkflowGraphCompiler.IsTypedGraph(JsonNode.Parse(run.GraphJson)))
+                    (run.TriggerType == WorkflowRunTriggerType.PublicCreative) || (run.TriggerType == WorkflowRunTriggerType.Api && WorkflowGraphCompiler.IsTypedGraph(JsonNode.Parse(run.GraphJson)))
                         || KnowledgeWorkflowService.ContainsKnowledge(run.GraphJson) || HttpRequestService.ContainsRequests(run.GraphJson) ? null : output,
-                    error),
+                    run.TriggerType == WorkflowRunTriggerType.PublicCreative && error is not null ? "生成未完成，请查看任务详情。" : error),
                 ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

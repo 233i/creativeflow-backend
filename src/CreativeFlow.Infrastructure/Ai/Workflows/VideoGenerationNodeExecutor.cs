@@ -46,7 +46,9 @@ internal sealed class VideoGenerationNodeExecutor(
         }
         else
         {
-            var managed = await models.ResolveAsync("video", ModelCategory.Video, ct);
+            var managed = await models.ResolveAsync("video", ModelCategory.Video, ct,
+                run.TriggerType == WorkflowRunTriggerType.PublicCreative ? ReadString(node.Data, "providerId") : null,
+                run.TriggerType == WorkflowRunTriggerType.PublicCreative ? ReadString(node.Data, "modelId") : null);
             var inputMode = NullIfEmpty(ReadString(node.Data, "inputMode")) ?? "reference";
             var reverseFrames = ReadBool(node.Data, "reverseFrames") ?? false;
             var prepared = WorkflowVideoInputPolicy.Prepare(inputMode, reverseFrames, input.Images);

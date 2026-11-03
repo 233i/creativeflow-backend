@@ -60,7 +60,7 @@ public sealed class AdminWorkflowCenterController(IWorkflowCenterRepository repo
             "deleted" => NoContent(),
             "not_found" => NotFound(),
             "changed" => Conflict(new ErrorResponse("workflow_changed", ["工作流已被修改，请重新查询删除影响并确认名称。"])),
-            _ => Conflict(new ErrorResponse("workflow_delete_blocked", ["请先停用已发布 API、下架模板，并结束所有排队或运行中的任务，再删除工作流。"])),
+            _ => Conflict(new ErrorResponse("workflow_delete_blocked", ["请先下架公共创作、停用已发布 API 和下架模板，并结束所有排队或运行中的任务，再删除工作流。"])),
         };
     }
 
@@ -97,6 +97,7 @@ public sealed class AdminWorkflowCenterController(IWorkflowCenterRepository repo
         if (scope is null) return NotFound();
         var run = scope.TriggerType == "api"
             ? await runs.FindExternalAsync(new WorkflowId(scope.WorkflowId), new WorkflowRunId(runId), ct)
+            : scope.TriggerType == "public_creative" ? await runs.FindPublicAsync(new WorkflowId(scope.WorkflowId), new WorkflowRunId(runId), ct)
             : await runs.FindAsync(new DeviceId(scope.DeviceId), new WorkflowId(scope.WorkflowId), new WorkflowRunId(runId), ct);
         if (run is null) return NotFound();
         if (await WorkflowV2Handlers.CheckResourcesAsync(run, HttpContext, ct) is { } denied) return denied;

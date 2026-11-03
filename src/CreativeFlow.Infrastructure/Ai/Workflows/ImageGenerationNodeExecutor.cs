@@ -15,7 +15,8 @@ internal sealed class ImageGenerationNodeExecutor(
     IAssetStore assetStore,
     ICanvasAssetRepository assets,
     IWorkflowRunRepository runs,
-    IImageOutputDownloader downloader) : IWorkflowNodeExecutor
+    IImageOutputDownloader downloader,
+    IWorkflowNodeProgress progress) : IWorkflowNodeExecutor
 {
     /// <summary>执行工作流图片生成节点并保存生成素材。</summary>
     public async Task<WorkflowNodeValue> ExecuteAsync(WorkflowNodeExecutionContext context, CancellationToken ct)
@@ -69,6 +70,8 @@ internal sealed class ImageGenerationNodeExecutor(
             throw new WorkflowCancelledException();
         }
 
+        if (run.TriggerType == WorkflowRunTriggerType.PublicCreative)
+            await progress.ReportAsync(run, context.NodeRun, 0.95, ct);
         var urls = new List<string>(result.Images.Count);
         foreach (var image in result.Images)
         {
@@ -84,7 +87,7 @@ internal sealed class ImageGenerationNodeExecutor(
                     saved.MediaType,
                     saved.StoragePath,
                     saved.ByteSize,
-                    string.Join("\n", input.Texts),
+                    run.TriggerType == WorkflowRunTriggerType.PublicCreative ? null : string.Join("\n", input.Texts),
                     DateTimeOffset.UtcNow,
                     SourceUrl: image.SourceUrl,
                     SourceUrlExpiresAt: image.SourceUrlExpiresAt),

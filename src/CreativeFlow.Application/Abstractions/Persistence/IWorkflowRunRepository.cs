@@ -49,6 +49,9 @@ public interface IWorkflowRunRepository
         WorkflowRunId runId,
         CancellationToken ct);
 
+    /// <summary>仅供已验证工作流管理权限的后台读取公共创作运行；客户读取使用账户隔离仓储。</summary>
+    Task<WorkflowRun?> FindPublicAsync(WorkflowId workflowId, WorkflowRunId runId, CancellationToken ct);
+
     /// <summary>按 API Key 和幂等键读取已有运行。</summary>
     Task<WorkflowRun?> FindByIdempotencyAsync(
         WorkflowApiKeyId apiKeyId,

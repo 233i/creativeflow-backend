@@ -205,6 +205,27 @@ public sealed class WorkflowRunRepository(CreativeFlowConnectionFactory connecti
         return row?.ToDomain();
     }
 
+    /// <summary>按已授权工作流范围读取公共客户运行，不能用于个人工作流读取。</summary>
+    public async Task<WorkflowRun?> FindPublicAsync(
+        WorkflowId workflowId,
+        WorkflowRunId runId,
+        CancellationToken ct)
+    {
+        await using var connection = await connections.OpenAsync(ct);
+        var row = await connection.QueryFirstOrDefaultAsync<WorkflowRunRow>(
+            $"""
+            SELECT {RunColumns}
+            FROM workflow_run
+            WHERE run_id = @RunId AND workflow_id = @WorkflowId AND trigger_type = 'public_creative'
+            """,
+            new ExternalRunScopeParams
+            {
+                RunId = runId.Value,
+                WorkflowId = workflowId.Value,
+            });
+        return row?.ToDomain();
+    }
+
     /// <summary>按 API Key 与幂等键读取首次受理的运行，配置切换不创建新任务。</summary>
     public async Task<WorkflowRun?> FindByIdempotencyAsync(
         WorkflowApiKeyId apiKeyId,
@@ -239,10 +260,14 @@ public sealed class WorkflowRunRepository(CreativeFlowConnectionFactory connecti
             """, new ExternalRunListParams { DeviceId = deviceId.Value, WorkflowId = workflowId.Value, Limit = 50 });
         return new System.Text.Json.Nodes.JsonArray(rows.Select(row => (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
         {
-            ["id"] = row.RunId.ToString(), ["status"] = row.Status, ["resumedFromRunId"] = row.ResumedFromRunId?.ToString(),
+            ["id"] = row.RunId.ToString(),
+            ["status"] = row.Status,
+            ["resumedFromRunId"] = row.ResumedFromRunId?.ToString(),
             ["debugNodeId"] = row.DebugNodeId,
-            ["createdAt"] = WorkflowPersistenceTime.ToOffset(row.CreatedAt).ToString("O"), ["updatedAt"] = WorkflowPersistenceTime.ToOffset(row.UpdatedAt).ToString("O"),
-            ["startedAt"] = WorkflowPersistenceTime.ToOffset(row.StartedAt)?.ToString("O"), ["finishedAt"] = WorkflowPersistenceTime.ToOffset(row.FinishedAt)?.ToString("O"),
+            ["createdAt"] = WorkflowPersistenceTime.ToOffset(row.CreatedAt).ToString("O"),
+            ["updatedAt"] = WorkflowPersistenceTime.ToOffset(row.UpdatedAt).ToString("O"),
+            ["startedAt"] = WorkflowPersistenceTime.ToOffset(row.StartedAt)?.ToString("O"),
+            ["finishedAt"] = WorkflowPersistenceTime.ToOffset(row.FinishedAt)?.ToString("O"),
         }).ToArray());
     }
 
@@ -345,6 +370,12 @@ public sealed class WorkflowRunRepository(CreativeFlowConnectionFactory connecti
             WHERE run.status = 'queued'
               AND (
                   run.trigger_type = 'interactive'
+                  OR (run.trigger_type = 'public_creative' AND pg_try_advisory_xact_lock(721909191) AND EXISTS (
+                      SELECT 1 FROM creative_app_run c JOIN creative_app_release v ON v.release_id=c.release_id
+                      WHERE c.run_id=run.run_id
+                        AND (SELECT count(*) FROM workflow_run a WHERE a.workflow_id=run.workflow_id AND a.trigger_type='public_creative' AND a.status='running') < v.max_concurrency
+                        AND (SELECT count(*) FROM creative_app_run ac JOIN workflow_run a ON a.run_id=ac.run_id WHERE ac.account_id=c.account_id AND ac.workflow_id=run.workflow_id AND a.status='running') < v.user_concurrency
+                  ))
                   OR (
                       deployment.deployment_id IS NOT NULL
                       AND pg_try_advisory_xact_lock(
@@ -376,6 +407,12 @@ public sealed class WorkflowRunRepository(CreativeFlowConnectionFactory connecti
             WHERE run.run_id = @RunId AND run.status = 'queued'
               AND (
                   run.trigger_type = 'interactive'
+                  OR (run.trigger_type = 'public_creative' AND EXISTS (
+                      SELECT 1 FROM creative_app_run c JOIN creative_app_release v ON v.release_id=c.release_id
+                      WHERE c.run_id=run.run_id
+                        AND (SELECT count(*) FROM workflow_run a WHERE a.workflow_id=run.workflow_id AND a.trigger_type='public_creative' AND a.status='running') < v.max_concurrency
+                        AND (SELECT count(*) FROM creative_app_run ac JOIN workflow_run a ON a.run_id=ac.run_id WHERE ac.account_id=c.account_id AND ac.workflow_id=run.workflow_id AND a.status='running') < v.user_concurrency
+                  ))
                   OR EXISTS (
                       SELECT 1 FROM workflow_deployment deployment
                       WHERE deployment.deployment_id = run.deployment_id
@@ -673,8 +710,12 @@ public sealed class WorkflowRunRepository(CreativeFlowConnectionFactory connecti
             """,
             new WorkflowNodeSkipParams
             {
-                RunId = runId.Value, WorkflowId = workflowId.Value, DeviceId = deviceId.Value,
-                NodeId = nodeId, Reason = reason, Now = now,
+                RunId = runId.Value,
+                WorkflowId = workflowId.Value,
+                DeviceId = deviceId.Value,
+                NodeId = nodeId,
+                Reason = reason,
+                Now = now,
             }, transaction);
         await transaction.CommitAsync(ct);
         return affected > 0;
@@ -852,7 +893,7 @@ internal sealed class WorkflowRunWriteParams
         UpdatedAt = run.UpdatedAt,
         StartedAt = run.StartedAt,
         FinishedAt = run.FinishedAt,
-        TriggerType = run.TriggerType == WorkflowRunTriggerType.Api ? "api" : "interactive",
+        TriggerType = run.TriggerType switch { WorkflowRunTriggerType.Api => "api", WorkflowRunTriggerType.PublicCreative => "public_creative", _ => "interactive" },
         DeploymentId = run.DeploymentId?.Value,
         ApiKeyId = run.ApiKeyId?.Value,
         RequestId = run.RequestId,
@@ -990,9 +1031,7 @@ internal class WorkflowRunRow
         WorkflowPersistenceTime.ToOffset(StartedAt),
         WorkflowPersistenceTime.ToOffset(FinishedAt))
     {
-        TriggerType = TriggerType == "api"
-            ? WorkflowRunTriggerType.Api
-            : WorkflowRunTriggerType.Interactive,
+        TriggerType = TriggerType switch { "api" => WorkflowRunTriggerType.Api, "public_creative" => WorkflowRunTriggerType.PublicCreative, _ => WorkflowRunTriggerType.Interactive },
         DeploymentId = DeploymentId is { } deploymentId
             ? new WorkflowDeploymentId(deploymentId)
             : null,

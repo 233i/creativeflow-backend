@@ -60,6 +60,20 @@ public class ControllerRouteTests
     /// <summary>既有 HTTP 边界及后续明确新增的管理员请求读取路由。</summary>
     private static readonly string[] ExpectedRoutes =
     [
+        "GET /api/v1/creative-apps #ListCreativeApps",
+        "GET /api/v1/creative-apps/{id:guid} #GetCreativeApp",
+        "GET /api/v1/creative-apps/{id:guid}/cover #GetCreativeAppCover",
+        "POST /api/v1/creative-apps/{id:guid}/runs #StartCreativeAppRun",
+        "GET /api/v1/creative-apps/{id:guid}/requests/{key} #FindCreativeAppRequest",
+        "GET /api/v1/creative-apps/runs #ListCreativeAppRuns",
+        "GET /api/v1/creative-apps/outputs #ListCreativeAppOutputs",
+        "GET /api/v1/creative-apps/runs/{id:guid} #GetCreativeAppRun",
+        "DELETE /api/v1/creative-apps/runs/{id:guid} #CancelCreativeAppRun",
+        "GET /api/v1/creative-apps/runs/{id:guid}/events #StreamCreativeAppRun",
+        "GET /api/v1/admin/workflow-apis/{id:guid}/creative-app #GetAdminCreativeApp",
+        "PUT /api/v1/admin/workflow-apis/{id:guid}/creative-app #PublishCreativeApp",
+        "DELETE /api/v1/admin/workflow-apis/{id:guid}/creative-app #UnpublishCreativeApp",
+        "POST /api/v1/admin/workflow-apis/{id:guid}/creative-app/versions/{release:guid}/activate #ActivateCreativeAppVersion",
         "GET /api/v1/admin/assets #ListManagedAssets",
         "GET /api/v1/admin/assets/facets #GetAssetFacets",
         "GET /api/v1/admin/assets/{id:guid} #GetManagedAsset",

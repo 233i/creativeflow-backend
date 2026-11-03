@@ -16,6 +16,8 @@
 
 ## 功能参考
 
+- [公共创作发布与客户调用](public-creative-apps.md)：管理员发布媒体应用，客户用表单生成图片/视频。
+
 - [认证与权限](authentication.md)：用户、管理员、外部 API Key 与设备范围。
 - [资产中心](asset-center.md)：素材授权、复用、回收和物理存储。
 - [异步图片任务](image-generation-jobs.md)：查询、重新下载与重新生成的区别。

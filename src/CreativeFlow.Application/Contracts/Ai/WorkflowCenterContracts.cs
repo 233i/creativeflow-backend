@@ -66,6 +66,10 @@ public sealed record WorkflowCenterItem(
 {
     /// <summary>软删除时间；非空时只允许查询历史，不再编辑、发布或运行。</summary>
     public DateTimeOffset? DeletedAt { get; init; }
+    /// <summary>公共创作独立发布渠道的可用状态。</summary>
+    public string PublicStatus { get; init; } = "none";
+    /// <summary>当前或最近公共发布版本。</summary>
+    public int? PublicVersion { get; init; }
 }
 
 /// <summary>与相同筛选、同一数据库快照一致的工作流中心分页结果。</summary>

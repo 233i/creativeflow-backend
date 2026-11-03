@@ -42,6 +42,8 @@ public static partial class DependencyInjection
         services.AddScoped<ICanvasAssetRepository, CanvasAssetRepository>();
         services.AddScoped<IAssetCenterRepository, AssetCenterRepository>();
         services.AddScoped<ICanvasRepository, CanvasRepository>();
+        services.AddScoped<ICreativeAppRepository, CreativeAppRepository>();
+        services.AddScoped<CreativeFlow.Application.Features.CreativeApps.CreativeAppService>();
         services.AddScoped<IWorkflowRepository, WorkflowRepository>();
         services.AddScoped<IWorkflowCenterRepository, WorkflowCenterRepository>();
         services.AddScoped<IWorkflowTemplateRepository, WorkflowTemplateRepository>();

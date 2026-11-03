@@ -44,10 +44,15 @@ public sealed partial class WorkflowCenterRepository
         Parameter(command, "AdminId", NpgsqlDbType.Uuid, adminId);
         Parameter(command, "Impact", NpgsqlDbType.Jsonb, new JsonObject
         {
-            ["historyRuns"] = preview.HistoryRuns, ["deploymentVersions"] = preview.DeploymentVersions,
-            ["apiKeys"] = preview.ApiKeys, ["independentCopies"] = preview.IndependentCopies,
-            ["queuedRuns"] = preview.QueuedRuns, ["runningRuns"] = preview.RunningRuns,
-            ["publishedApis"] = preview.PublishedApis, ["publishedTemplates"] = preview.PublishedTemplates,
+            ["historyRuns"] = preview.HistoryRuns,
+            ["deploymentVersions"] = preview.DeploymentVersions,
+            ["apiKeys"] = preview.ApiKeys,
+            ["independentCopies"] = preview.IndependentCopies,
+            ["queuedRuns"] = preview.QueuedRuns,
+            ["runningRuns"] = preview.RunningRuns,
+            ["publicApps"] = preview.PublicApps,
+            ["publishedApis"] = preview.PublishedApis,
+            ["publishedTemplates"] = preview.PublishedTemplates,
         }.ToJsonString());
         await command.ExecuteNonQueryAsync(ct);
         await transaction.CommitAsync(ct);
@@ -86,13 +91,14 @@ public sealed partial class WorkflowCenterRepository
                 (SELECT count(*) FROM workflow_run WHERE workflow_id IN (SELECT workflow_id FROM scope)),
                 (SELECT count(*) FROM workflow_deployment WHERE workflow_id IN (SELECT workflow_id FROM scope)),
                 (SELECT count(*) FROM workflow_api_key WHERE workflow_id IN (SELECT workflow_id FROM scope)),
-                (SELECT count(*) FROM workflow WHERE copied_from_source = @Source AND copied_from_id = @Id AND deleted_at IS NULL)
+                (SELECT count(*) FROM workflow WHERE copied_from_source = @Source AND copied_from_id = @Id AND deleted_at IS NULL),
+                (SELECT count(*) FROM creative_app WHERE workflow_id IN (SELECT workflow_id FROM scope) AND active_release_id IS NOT NULL)
             """;
         Parameter(command, "Source", NpgsqlDbType.Text, source);
         await using var counts = await command.ExecuteReaderAsync(ct);
         await counts.ReadAsync(ct);
         return new(id.ToString(), source, name, revision, deletedAt,
             counts.GetInt64(0), counts.GetInt64(1), counts.GetInt64(2), counts.GetInt64(3),
-            counts.GetInt64(4), counts.GetInt64(5), counts.GetInt64(6), counts.GetInt64(7));
+            counts.GetInt64(4), counts.GetInt64(5), counts.GetInt64(6), counts.GetInt64(7), counts.GetInt64(8));
     }
 }

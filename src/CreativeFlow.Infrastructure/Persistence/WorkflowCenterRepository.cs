@@ -22,13 +22,18 @@ public sealed partial class WorkflowCenterRepository(NpgsqlDataSource dataSource
             ) THEN 'general' ELSE 'media' END AS kind,
             COALESCE(d.status, 'unpublished') AS api_status, d.version AS api_version,
             'none'::text AS template_status, NULL::integer AS template_version,
-            CASE WHEN d.deployment_id IS NULL THEN 'unpublished'
+            CASE WHEN d.deployment_id IS NULL AND car.version IS NOT NULL THEN CASE WHEN w.updated_at<=car.created_at THEN 'saved' ELSE 'changed' END
+                 WHEN d.deployment_id IS NULL THEN 'unpublished'
                  WHEN w.graph = d.graph_snapshot THEN 'saved' ELSE 'changed' END AS draft_status,
             CASE WHEN jsonb_typeof(w.graph->'nodes') = 'array'
                  THEN jsonb_array_length(w.graph->'nodes') ELSE 0 END AS node_count,
             w.updated_at, w.deleted_at, r.run_id, r.workflow_id AS run_workflow_id,
-            r.trigger_type, r.status AS run_status, r.created_at AS run_created_at
+            r.trigger_type, r.status AS run_status, r.created_at AS run_created_at,
+            CASE WHEN ca.active_release_id IS NOT NULL THEN 'published' WHEN car.version IS NOT NULL THEN 'unpublished' ELSE 'none' END AS public_status,
+            car.version AS public_version
           FROM workflow w
+          LEFT JOIN creative_app ca ON ca.workflow_id=w.workflow_id
+          LEFT JOIN LATERAL (SELECT version,created_at FROM creative_app_release WHERE workflow_id=w.workflow_id ORDER BY (release_id=ca.active_release_id) DESC NULLS LAST,version DESC LIMIT 1) car ON true
           LEFT JOIN LATERAL (
             SELECT deployment_id, description, status, version, graph_snapshot
             FROM workflow_deployment WHERE workflow_id = w.workflow_id
@@ -52,7 +57,8 @@ public sealed partial class WorkflowCenterRepository(NpgsqlDataSource dataSource
             CASE WHEN t.status = 'published' THEN 'saved' ELSE 'unpublished' END,
             CASE WHEN jsonb_typeof(t.graph->'nodes') = 'array'
                  THEN jsonb_array_length(t.graph->'nodes') ELSE 0 END,
-            t.updated_at, t.deleted_at, r.run_id, r.workflow_id, r.trigger_type, r.status, r.created_at
+            t.updated_at, t.deleted_at, r.run_id, r.workflow_id, r.trigger_type, r.status, r.created_at,
+            'none',NULL::integer
           FROM workflow_template t
           LEFT JOIN LATERAL (
             SELECT r.run_id, r.workflow_id, r.trigger_type, r.status, r.created_at
@@ -128,7 +134,8 @@ public sealed partial class WorkflowCenterRepository(NpgsqlDataSource dataSource
                     Value<string>(reader, "api_status"), OptionalInt(reader, "api_version"),
                     Value<string>(reader, "template_status"), OptionalInt(reader, "template_version"),
                     Value<string>(reader, "draft_status"), Value<int>(reader, "node_count"),
-                    Value<DateTimeOffset>(reader, "updated_at"), run) { DeletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : Value<DateTimeOffset>(reader, "deleted_at") });
+                    Value<DateTimeOffset>(reader, "updated_at"), run)
+                { PublicStatus = Value<string>(reader, "public_status"), PublicVersion = OptionalInt(reader, "public_version"), DeletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : Value<DateTimeOffset>(reader, "deleted_at") });
             }
         }
         await transaction.CommitAsync(ct);
@@ -167,7 +174,8 @@ public sealed partial class WorkflowCenterRepository(NpgsqlDataSource dataSource
             total = reader.GetInt64(0);
             await reader.NextResultAsync(ct);
             while (await reader.ReadAsync(ct)) items.Add(new(reader.GetGuid(0).ToString(), reader.GetGuid(1).ToString(),
-                reader.GetString(2), reader.GetString(3), reader.GetFieldValue<DateTimeOffset>(4)) { DebugNodeId = reader.IsDBNull(5) ? null : reader.GetString(5) });
+                reader.GetString(2), reader.GetString(3), reader.GetFieldValue<DateTimeOffset>(4))
+            { DebugNodeId = reader.IsDBNull(5) ? null : reader.GetString(5) });
         }
         await transaction.CommitAsync(ct);
         return new(items.ToArray(), total, offset, limit);

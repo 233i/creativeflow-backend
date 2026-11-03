@@ -123,6 +123,8 @@ public enum WorkflowDeploymentStatus
 
 public enum WorkflowRunTriggerType
 {
+    /// <summary>由登录客户运行管理员发布的公共媒体应用。</summary>
+    PublicCreative,
     /// <summary>由登录用户的交互操作触发。</summary>
     Interactive,
     /// <summary>由外部工作流 API 触发。</summary>

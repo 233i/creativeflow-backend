@@ -147,6 +147,8 @@ Do not use `down -v` unless intentionally erasing this instance. This Compose st
 
 ## Publish once. Integrate your way.
 
+For signed-in customers, publish media workflows as **Public Creative Apps**: a versioned form, private customer runs, image/video results, and per-app concurrency and daily quotas. This channel is independent of API deployments. See the [public creation guide](docs/public-creative-apps.md).
+
 | Your client needs                              | Use                             | Contract                                            |
 | ---------------------------------------------- | ------------------------------- | --------------------------------------------------- |
 | A task ID and a final result                   | REST submission + polling       | [REST workflow API](docs/workflow-api-streaming.md) |
