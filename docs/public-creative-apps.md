@@ -47,47 +47,7 @@
 
 ## 客户接口
 
-以下接口需要普通账户会话和设备握手，不接受管理员会话替代客户身份，也不需要将 API Key 分发给桌面用户。
-
-| 方法与路径 | 行为 |
-| --- | --- |
-| `GET /api/v1/creative-apps?search=&kind=image&offset=0` | 上架应用列表，每页最多 50 个 |
-| `GET /api/v1/creative-apps/{id}` | 当前版本、表单和限制 |
-| `GET /api/v1/creative-apps/{id}/cover` | 当前上架版本的封面 |
-| `POST /api/v1/creative-apps/{id}/runs` | 创建或找回任务，返回 `202` 和安全任务视图 |
-| `GET /api/v1/creative-apps/{id}/requests/{requestKey}` | 找回响应丢失的提交；未找到返回 `404`，不自动重新提交 |
-| `GET /api/v1/creative-apps/runs?offset=0` | 当前账户历史，可加 `appId` |
-| `GET /api/v1/creative-apps/outputs?offset=0` | 当前账户已保存的历史成品，分页和筛选见下文 |
-| `GET /api/v1/creative-apps/runs/{runId}` | 当前状态、节点名称/进度、输入和输出 |
-| `DELETE /api/v1/creative-apps/runs/{runId}` | 取消自己的活动任务 |
-| `GET /api/v1/creative-apps/runs/{runId}/events` | `event: progress` SSE 状态快照；非 AG-UI |
-
-提交示例（键名以应用返回的表单为准）：
-
-```json
-{
-  "releaseId": "00000000-0000-0000-0000-000000000001",
-  "requestKey": "customer-request-unique-001",
-  "inputs": {
-    "prompt": "自然光商品展示",
-    "reference": { "assetId": "00000000-0000-0000-0000-000000000002" }
-  }
-}
-```
-
-`reference` 使用当前账户已上传的素材 ID。返回结果中的媒体 URL 使用原有素材权限，不能读取其他账户任务或成品。任务视图不包含内部图、固定提示词、渠道密钥或原始上游错误；管理员仍可在运行详情排查。
-
-### 历史产物查询
-
-`GET /api/v1/creative-apps/outputs` 从运行的固定发布契约中读取已成功保存的声明输出。包含已下架应用及未完全成功任务中已经保存的成品，不包含内部节点临时结果、客户上传参考图、已回收或清除的素材。读取时检查账户与素材归属，不通过应用是否仍上架决定历史结果的访问权。
-
-可选参数：`search`（最多 100 字，匹配工作流名称、产物标签或任务 ID，按字面搜索）、`kind`（`image` / `video`）、`appId`、`days`（`0` 全部、`7`、`30`、`90`）和 `offset`（0–100000）。每页 24 条，返回 `{items, hasMore, offset, limit}`，使用 `hasMore` 判断是否还有下一页。结果按任务创建时间倒序，同一任务按声明输出及产物顺序排列。
-
-每个产物包含 `id`（任务、输出键及位置组合）、`assetId`、`url`、`kind`、`mediaType`、`byteSize`、`createdAt`、`key`、`label`、`runId`、`runStatus`、`appId`、`name` 和 `version`。`url` 继续使用有权限验证的素材接口，视频支持 Range。打开历史任务使用 `runId` 查询任务详情；查看、预览、下载均不会重新生成。
-
-历史产物查询复用 `0049` 已有表和索引，无新增迁移。客户端需要匹配包含 `/outputs` 端点的后端版本。
-
-网页和桌面通过周期性 GET 展示进度。SSE 端点在状态变化时发送完整安全快照，否则发送心跳；每条连接最多约 30 秒，重连时重新鉴权，终态发送后关闭。连接关闭后应 GET 最新状态，活动任务可重新连接；没有事件补发 ID，不能按 AG-UI 事件消费。
+客户使用普通账户会话和设备握手访问自己的任务和素材。表单字段、任务状态、历史成品和调用示例见[公共创作前端对接](creative-apps-frontend.md)。
 
 ## 管理接口与数据库
 

@@ -10,6 +10,7 @@
 | --- | --- |
 | 第一次在本机运行 | README → [本地开发与前后端联调](local-development.md) → [无模型回显示例](examples/README.md) |
 | 部署自己的服务器 | [配置](configuration.md) → [部署](deployment.md) → [运维与备份](operations.md) |
+| 接入公共创作前端 | [登录、表单、任务与成品](creative-apps-frontend.md) |
 | 接入外部业务系统 | [工作流概念](workflows.md) → [REST/SSE](workflow-api-streaming.md) 或 [AG-UI](ag-ui-workflow-api.md) |
 | 配置模型与知识库 | [模型/画布 API](ai-canvas-api.md) → [端点许可](configuration.md#endpoint-allowlists) → [知识库](knowledge.md) |
 | 修改或维护代码 | [架构](architecture.md) → [数据模型与迁移](data-model.md) → [开发规范](coding-standards.md) |
